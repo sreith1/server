@@ -4,6 +4,7 @@
  * @copyright Copyright (c) 2017, Georg Ehrke
  * @copyright Copyright (C) 2007-2015 fruux GmbH (https://fruux.com/).
  * @copyright Copyright (C) 2007-2015 fruux GmbH (https://fruux.com/).
+ * @copyright 2022 Anna Larch <anna.larch@gmx.net>
  *
  * @author brad2014 <brad2014@users.noreply.github.com>
  * @author Brad Rubenstein <brad@wbr.tech>
@@ -16,6 +17,7 @@
  * @author Roeland Jago Douma <roeland@famdouma.nl>
  * @author Thomas Citharel <nextcloud@tcit.fr>
  * @author Thomas Müller <thomas.mueller@tmit.eu>
+ * @author Anna Larch <anna.larch@gmx.net>
  *
  * @license AGPL-3.0
  *
@@ -34,6 +36,8 @@
  */
 namespace OCA\DAV\CalDAV\Schedule;
 
+use OCA\DAV\CalDAV\CalendarObject;
+use OCA\DAV\CalDAV\EventComparisonService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Defaults;
 use OCP\IConfig;
@@ -48,12 +52,16 @@ use OCP\Security\ISecureRandom;
 use OCP\Util;
 use Psr\Log\LoggerInterface;
 use Sabre\CalDAV\Schedule\IMipPlugin as SabreIMipPlugin;
+use Sabre\DAV;
+use Sabre\DAV\INode;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Component\VEvent;
+use Sabre\VObject\Component\VTimeZone;
 use Sabre\VObject\DateTimeParser;
 use Sabre\VObject\ITip\Message;
 use Sabre\VObject\Parameter;
 use Sabre\VObject\Property;
+use Sabre\VObject\Reader;
 use Sabre\VObject\Recur\EventIterator;
 
 /**
@@ -82,53 +90,59 @@ class IMipPlugin extends SabreIMipPlugin {
 	private $mailer;
 
 	private LoggerInterface $logger;
-
-	/** @var ITimeFactory */
-	private $timeFactory;
-
-	/** @var L10NFactory */
-	private $l10nFactory;
-
-	/** @var IURLGenerator */
-	private $urlGenerator;
-
-	/** @var ISecureRandom */
-	private $random;
-
-	/** @var IDBConnection */
-	private $db;
-
-	/** @var Defaults */
-	private $defaults;
-
-	/** @var IUserManager */
-	private $userManager;
-
+	private ITimeFactory $timeFactory;
+	private Defaults $defaults;
+	private IUserManager $userManager;
+	private ?VCalendar $vCalendar = null;
+	private IMipService $imipService;
 	public const MAX_DATE = '2038-01-01';
-
 	public const METHOD_REQUEST = 'request';
 	public const METHOD_REPLY = 'reply';
 	public const METHOD_CANCEL = 'cancel';
 	public const IMIP_INDENT = 15; // Enough for the length of all body bullet items, in all languages
+	private EventComparisonService $eventComparisonService;
 
-	public function __construct(IConfig $config, IMailer $mailer,
+	public function __construct(IConfig $config,
+								IMailer $mailer,
 								LoggerInterface $logger,
-								ITimeFactory $timeFactory, L10NFactory $l10nFactory,
-								IURLGenerator $urlGenerator, Defaults $defaults,
-								ISecureRandom $random, IDBConnection $db, IUserManager $userManager,
-								$userId) {
+								ITimeFactory $timeFactory,
+								Defaults $defaults,
+								IUserManager $userManager,
+								$userId,
+								IMipService $imipService,
+								EventComparisonService $eventComparisonService) {
 		parent::__construct('');
 		$this->userId = $userId;
 		$this->config = $config;
 		$this->mailer = $mailer;
 		$this->logger = $logger;
 		$this->timeFactory = $timeFactory;
-		$this->l10nFactory = $l10nFactory;
-		$this->urlGenerator = $urlGenerator;
-		$this->random = $random;
-		$this->db = $db;
 		$this->defaults = $defaults;
 		$this->userManager = $userManager;
+		$this->imipService = $imipService;
+		$this->eventComparisonService = $eventComparisonService;
+	}
+
+	public function initialize(DAV\Server $server): void {
+		parent::initialize($server);
+		$server->on('beforeWriteContent', [$this, 'beforeWriteContent'], 10);
+	}
+
+	/**
+	 * Check quota before writing content
+	 *
+	 * @param string $uri target file URI
+	 * @param INode $node Sabre Node
+	 * @param resource $data data
+	 * @param bool $modified modified
+	 */
+	public function beforeWriteContent($uri, INode $node, $data, $modified): void {
+		if(!$node instanceof CalendarObject) {
+			return;
+		}
+		/** @var VCalendar $vCalendar */
+		$vCalendar = Reader::read($node->get());
+		$this->setVCalendar($vCalendar);
 	}
 
 	/**
@@ -148,25 +162,19 @@ class IMipPlugin extends SabreIMipPlugin {
 			return;
 		}
 
-		$summary = $iTipMessage->message->VEVENT->SUMMARY;
-
-		if (parse_url($iTipMessage->sender, PHP_URL_SCHEME) !== 'mailto') {
-			return;
-		}
-
-		if (parse_url($iTipMessage->recipient, PHP_URL_SCHEME) !== 'mailto') {
+		if (parse_url($iTipMessage->sender, PHP_URL_SCHEME) !== 'mailto'
+			|| parse_url($iTipMessage->recipient, PHP_URL_SCHEME) !== 'mailto') {
 			return;
 		}
 
 		// don't send out mails for events that already took place
-		$lastOccurrence = $this->getLastOccurrence($iTipMessage->message);
+		$lastOccurrence = $this->imipService->getLastOccurrence($iTipMessage->message);
 		$currentTime = $this->timeFactory->getTime();
 		if ($lastOccurrence < $currentTime) {
 			return;
 		}
 
 		// Strip off mailto:
-		$sender = substr($iTipMessage->sender, 7);
 		$recipient = substr($iTipMessage->recipient, 7);
 		if ($recipient === false || !$this->mailer->validateMailAddress($recipient)) {
 			// Nothing to send if the recipient doesn't have a valid email address
@@ -185,44 +193,26 @@ class IMipPlugin extends SabreIMipPlugin {
 				$senderName = $user->getDisplayName();
 			}
 		}
+		$sender = substr($iTipMessage->sender, 7);
 
-		/** @var VEvent $vevent */
-		$vevent = $iTipMessage->message->VEVENT;
-
-		$attendee = $this->getCurrentAttendee($iTipMessage);
-		$defaultLang = $this->l10nFactory->findGenericLanguage();
-		$lang = $this->getAttendeeLangOrDefault($defaultLang, $attendee);
-		$l10n = $this->l10nFactory->get('dav', $lang);
-
-		$meetingAttendeeName = $recipientName ?: $recipient;
-		$meetingInviteeName = $senderName ?: $sender;
-
-		$meetingTitle = $vevent->SUMMARY;
-		$meetingDescription = $vevent->DESCRIPTION;
-
-
-		$meetingUrl = $vevent->URL;
-		$meetingLocation = $vevent->LOCATION;
-
-		$defaultVal = '--';
-
-		$method = self::METHOD_REQUEST;
 		switch (strtolower($iTipMessage->method)) {
 			case self::METHOD_REPLY:
 				$method = self::METHOD_REPLY;
+				$data = $this->imipService->buildBodyData($vEvent, $oldVevent);
 				break;
 			case self::METHOD_CANCEL:
 				$method = self::METHOD_CANCEL;
+				$data = $this->imipService->buildCancelledBodyData($vEvent);
+				break;
+			default:
+				$method = self::METHOD_REQUEST;
+				$data = $this->imipService->buildBodyData($vEvent, $oldVevent);
 				break;
 		}
 
-		$data = [
-			'attendee_name' => (string)$meetingAttendeeName ?: $defaultVal,
-			'invitee_name' => (string)$meetingInviteeName ?: $defaultVal,
-			'meeting_title' => (string)$meetingTitle ?: $defaultVal,
-			'meeting_description' => (string)$meetingDescription ?: $defaultVal,
-			'meeting_url' => (string)$meetingUrl ?: $defaultVal,
-		];
+
+		$data['attendee_name'] = ($recipientName ?: $recipient);
+		$data['invitee_name'] = ($senderName ?: $sender);
 
 		$fromEMail = Util::getDefaultEmailAddress('invitations-noreply');
 		$fromName = $l10n->t('%1$s via %2$s', [$senderName, $this->defaults->getName()]);
@@ -238,10 +228,8 @@ class IMipPlugin extends SabreIMipPlugin {
 		$template = $this->mailer->createEMailTemplate('dav.calendarInvite.' . $method, $data);
 		$template->addHeader();
 
-		$summary = ((string) $summary !== '') ? (string) $summary : $l10n->t('Untitled event');
-
-		$this->addSubjectAndHeading($template, $l10n, $method, $summary);
-		$this->addBulletList($template, $l10n, $vevent);
+		$this->imipService->addSubjectAndHeading($template, $method, $data['invitee_name'], $data['meeting_title']);
+		$this->imipService->addBulletList($template, $vEvent, $data);
 
 		// Only add response buttons to invitation requests: Fix Issue #11230
 		if (($method == self::METHOD_REQUEST) && $this->getAttendeeRsvpOrReqForParticipant($attendee)) {
@@ -265,13 +253,15 @@ class IMipPlugin extends SabreIMipPlugin {
 			** To suppress URLs entirely, set invitation_link_recipients to boolean "no".
 			*/
 
-			$recipientDomain = substr(strrchr($recipient, "@"), 1);
+			$recipientDomain = substr(strrchr($recipient, '@'), 1);
 			$invitationLinkRecipients = explode(',', preg_replace('/\s+/', '', strtolower($this->config->getAppValue('dav', 'invitation_link_recipients', 'yes'))));
 
 			if (strcmp('yes', $invitationLinkRecipients[0]) === 0
-				 || in_array(strtolower($recipient), $invitationLinkRecipients)
-				 || in_array(strtolower($recipientDomain), $invitationLinkRecipients)) {
-				$this->addResponseButtons($template, $l10n, $iTipMessage, $lastOccurrence);
+				|| in_array(strtolower($recipient), $invitationLinkRecipients)
+				|| in_array(strtolower($recipientDomain), $invitationLinkRecipients)) {
+				$token = $this->imipService->createInvitationToken($iTipMessage, $vEvent, $lastOccurrence);
+				$this->imipService->addResponseButtons($template, $token);
+				$this->imipService->addMoreOptionsButton($template, $token);
 			}
 		}
 
@@ -279,9 +269,11 @@ class IMipPlugin extends SabreIMipPlugin {
 
 		$message->useTemplate($template);
 
+		$vCalendar = $this->imipService->generateVCalendar($iTipMessage, $vEvent);
+
 		$attachment = $this->mailer->createAttachment(
-			$iTipMessage->message->serialize(),
-			'event.ics',// TODO(leon): Make file name unique, e.g. add event id
+			$vCalendar->serialize(),
+			'event.ics',
 			'text/calendar; method=' . $iTipMessage->method
 		);
 		$message->attach($attachment);
@@ -289,7 +281,7 @@ class IMipPlugin extends SabreIMipPlugin {
 		try {
 			$failed = $this->mailer->send($message);
 			$iTipMessage->scheduleStatus = '1.1; Scheduling message is sent via iMip';
-			if ($failed) {
+			if (!empty($failed)) {
 				$this->logger->error('Unable to deliver message to {failed}', ['app' => 'dav', 'failed' => implode(', ', $failed)]);
 				$iTipMessage->scheduleStatus = '5.0; EMail delivery failed';
 			}
@@ -300,106 +292,17 @@ class IMipPlugin extends SabreIMipPlugin {
 	}
 
 	/**
-	 * check if event took place in the past already
-	 * @param VCalendar $vObject
-	 * @return int
+	 * @return ?VCalendar
 	 */
-	private function getLastOccurrence(VCalendar $vObject) {
-		/** @var VEvent $component */
-		$component = $vObject->VEVENT;
-
-		$firstOccurrence = $component->DTSTART->getDateTime()->getTimeStamp();
-		// Finding the last occurrence is a bit harder
-		if (!isset($component->RRULE)) {
-			if (isset($component->DTEND)) {
-				$lastOccurrence = $component->DTEND->getDateTime()->getTimeStamp();
-			} elseif (isset($component->DURATION)) {
-				/** @var \DateTime $endDate */
-				$endDate = clone $component->DTSTART->getDateTime();
-				// $component->DTEND->getDateTime() returns DateTimeImmutable
-				$endDate = $endDate->add(DateTimeParser::parse($component->DURATION->getValue()));
-				$lastOccurrence = $endDate->getTimestamp();
-			} elseif (!$component->DTSTART->hasTime()) {
-				/** @var \DateTime $endDate */
-				$endDate = clone $component->DTSTART->getDateTime();
-				// $component->DTSTART->getDateTime() returns DateTimeImmutable
-				$endDate = $endDate->modify('+1 day');
-				$lastOccurrence = $endDate->getTimestamp();
-			} else {
-				$lastOccurrence = $firstOccurrence;
-			}
-		} else {
-			$it = new EventIterator($vObject, (string)$component->UID);
-			$maxDate = new \DateTime(self::MAX_DATE);
-			if ($it->isInfinite()) {
-				$lastOccurrence = $maxDate->getTimestamp();
-			} else {
-				$end = $it->getDtEnd();
-				while ($it->valid() && $end < $maxDate) {
-					$end = $it->getDtEnd();
-					$it->next();
-				}
-				$lastOccurrence = $end->getTimestamp();
-			}
-		}
-
-		return $lastOccurrence;
+	public function getVCalendar(): ?VCalendar {
+		return $this->vCalendar;
 	}
 
 	/**
-	 * @param Message $iTipMessage
-	 * @return null|Property
+	 * @param ?VCalendar $vCalendar
 	 */
-	private function getCurrentAttendee(Message $iTipMessage) {
-		/** @var VEvent $vevent */
-		$vevent = $iTipMessage->message->VEVENT;
-		$attendees = $vevent->select('ATTENDEE');
-		foreach ($attendees as $attendee) {
-			/** @var Property $attendee */
-			if (strcasecmp($attendee->getValue(), $iTipMessage->recipient) === 0) {
-				return $attendee;
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * @param string $default
-	 * @param Property|null $attendee
-	 * @return string
-	 */
-	private function getAttendeeLangOrDefault($default, Property $attendee = null) {
-		if ($attendee !== null) {
-			$lang = $attendee->offsetGet('LANGUAGE');
-			if ($lang instanceof Parameter) {
-				return $lang->getValue();
-			}
-		}
-		return $default;
-	}
-
-	/**
-	 * @param Property|null $attendee
-	 * @return bool
-	 */
-	private function getAttendeeRsvpOrReqForParticipant(Property $attendee = null) {
-		if ($attendee !== null) {
-			$rsvp = $attendee->offsetGet('RSVP');
-			if (($rsvp instanceof Parameter) && (strcasecmp($rsvp->getValue(), 'TRUE') === 0)) {
-				return true;
-			}
-			$role = $attendee->offsetGet('ROLE');
-			// @see https://datatracker.ietf.org/doc/html/rfc5545#section-3.2.16
-			// Attendees without a role are assumed required and should receive an invitation link even if they have no RSVP set
-			if ($role === null
-				|| (($role instanceof Parameter) && (strcasecmp($role->getValue(), 'REQ-PARTICIPANT') === 0))
-				|| (($role instanceof Parameter) && (strcasecmp($role->getValue(), 'OPT-PARTICIPANT') === 0))
-			) {
-				return true;
-			}
-		}
-		// RFC 5545 3.2.17: default RSVP is false
-		return false;
+	public function setVCalendar(?VCalendar $vCalendar): void {
+		$this->vCalendar = $vCalendar;
 	}
 
 	/**
