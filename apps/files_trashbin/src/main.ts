@@ -19,9 +19,20 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+import type NavigationService from '../../files/src/services/Navigation'
+import { translate as t } from '@nextcloud/l10n'
+import DeleteSvg from '@mdi/svg/svg/delete.svg?raw'
 
-import './app'
-import './filelist'
-import './trash.scss'
+const Navigation = window.OCP.Files.Navigation as NavigationService
+Navigation.register({
+	id: 'trashbin',
+	name: t('files_trashbin', 'Deleted files'),
 
-window.OCA.Trashbin = OCA.Trashbin
+	icon: DeleteSvg,
+	order: 50,
+	sticky: true,
+
+	getFiles: (path: string) => {
+		return []
+	},
+})

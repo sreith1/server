@@ -32,13 +32,20 @@
 				:title="view.name"
 				:to="generateToNavigation(view)"
 				@update:open="onToggleExpand(view)">
+				<!-- Sanitized icon as svg if provided -->
+				<NcIconSvgWrapper v-if="view.icon" slot="icon" :svg="view.icon" />
+
+				<!-- Child views if any -->
 				<NcAppNavigationItem v-for="child in childViews[view.id]"
 					:key="child.id"
 					:data-cy-files-navigation-item="child.id"
 					:exact="true"
 					:icon="child.iconClass"
 					:title="child.name"
-					:to="generateToNavigation(child)" />
+					:to="generateToNavigation(child)">
+					<!-- Sanitized icon as svg if provided -->
+					<NcIconSvgWrapper v-if="view.icon" slot="icon" :svg="view.icon" />
+				</NcAppNavigationItem>
 			</NcAppNavigationItem>
 		</template>
 
@@ -74,6 +81,7 @@ import axios from '@nextcloud/axios'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import NcAppNavigation from '@nextcloud/vue/dist/Components/NcAppNavigation.js'
 import NcAppNavigationItem from '@nextcloud/vue/dist/Components/NcAppNavigationItem.js'
+import NcIconSvgWrapper from '@nextcloud/vue/dist/Components/NcIconSvgWrapper.js'
 
 import logger from '../logger.js'
 import Navigation from '../services/Navigation.ts'
@@ -85,10 +93,11 @@ export default {
 
 	components: {
 		Cog,
+		NavigationQuota,
 		NcAppNavigation,
 		NcAppNavigationItem,
+		NcIconSvgWrapper,
 		SettingsModal,
-		NavigationQuota,
 	},
 
 	props: {
