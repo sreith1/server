@@ -19,21 +19,12 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
-import type NavigationService from '../../files/src/services/Navigation'
+import { join } from 'path'
+import client from './client'
 
-import { translate as t } from '@nextcloud/l10n'
-import DeleteSvg from '@mdi/svg/svg/delete.svg?raw'
-
-import getContent from './services/trashbin'
-
-const Navigation = window.OCP.Files.Navigation as NavigationService
-Navigation.register({
-	id: 'trashbin',
-	name: t('files_trashbin', 'Deleted files'),
-
-	icon: DeleteSvg,
-	order: 50,
-	sticky: true,
-
-	getContent,
-})
+export default async (path: string = '/') => {
+	const response = await client.getDirectoryContents(join('/trash', path), {
+		details: true,
+	})
+	return response
+}

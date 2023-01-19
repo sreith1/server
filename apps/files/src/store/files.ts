@@ -19,21 +19,45 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
-import type NavigationService from '../../files/src/services/Navigation'
+import type Node from '@nextcloud/files/dist/files/node'
+import { Store } from 'vuex'
 
-import { translate as t } from '@nextcloud/l10n'
-import DeleteSvg from '@mdi/svg/svg/delete.svg?raw'
+type FileStore {
+	[id: number]: Node
+}
 
-import getContent from './services/trashbin'
+// Create a new store instance.
+export default new Store({
+	state: {
+		files: {} as FileStore,
+	},
 
-const Navigation = window.OCP.Files.Navigation as NavigationService
-Navigation.register({
-	id: 'trashbin',
-	name: t('files_trashbin', 'Deleted files'),
+	getters: {
+		/**
+		 * Get a file or folder by id
+		 */
+		getNode: (state)  => (id: number): Node|undefined => state.files[id],
 
-	icon: DeleteSvg,
-	order: 50,
-	sticky: true,
+		/**
+		 * Get a list of files or folders by their IDs
+		 * Does not return undefined values
+		 */
+		getNodes: (state) => (ids: number[]): Node[] => ids
+				.map(id => state.files[id])
+				.filter(Boolean)
+	},
+	
+	mutations: {
+		updateNodes: (state, nodes: Node[]) => {
+			nodes.forEach(node => {
+				state.files[node.attributes.fileid] = node
+			})
+		}
+	},
 
-	getContent,
+	actions: {
+		addNode: (context, node: Node) => {
+			context.commit('updateNodes', [node])
+		},
+	},
 })

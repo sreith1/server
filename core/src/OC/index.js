@@ -30,7 +30,6 @@ import {
 	processAjaxError,
 	registerXHRForErrorProcessing,
 } from './xhr-error'
-import Apps from './apps'
 import { AppConfig, appConfig } from './appconfig'
 import { appSettings } from './appsettings'
 import appswebroots from './appswebroots'
@@ -142,7 +141,6 @@ export default {
 
 	addScript,
 	addStyle,
-	Apps,
 	AppConfig,
 	appConfig,
 	appSettings,

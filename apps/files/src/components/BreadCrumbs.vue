@@ -1,8 +1,9 @@
 <template>
-	<NcBreadcrumbs>
+	<NcBreadcrumbs data-cy-files-content-breadcrumbs>
 		<!-- Current path sections -->
 		<NcBreadcrumb v-for="section in sections"
 			:key="section.dir"
+			:aria-label="t('files', `Go to the '{dir}' directory`, section)"
 			v-bind="section"
 			@click.prevent.stop="onBreadClick(section)" />
 	</NcBreadcrumbs>
@@ -48,13 +49,17 @@ export default {
 
 	methods: {
 		/**
-		 * The only way to get an exact match and query change
+		 * Push the new directory route to the router.
+		 * The only way to get an exact match and query change.
 		 *
-		 * @param {object} section
+		 * @param {object} section the section object
 		 * @param {string} section.dir the dir path
 		 */
 		onBreadClick({ dir }) {
-			this.$router.replace({ query: { dir } })
+			const name = this.$route.name
+			const params = this.$route.params
+			console.debug({ name, params, query: { dir } })
+			this.$router.push({ name, params, query: { dir } })
 		},
 	},
 }

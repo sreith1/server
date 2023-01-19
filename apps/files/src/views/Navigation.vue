@@ -159,7 +159,16 @@ export default {
 
 	watch: {
 		currentView(view, oldView) {
+			// If undefined, it means we're initializing the view
+			// This is handled by the legacy-view:initialized event
+			if (view?.id === oldView?.id) {
+				return
+			}
+
+			this.Navigation.setActive(view.id)
 			logger.debug('View changed', { id: view.id, view })
+
+			// debugger
 			this.showView(view, oldView)
 		},
 	},
@@ -171,6 +180,12 @@ export default {
 		}
 
 		subscribe('files:legacy-navigation:changed', this.onLegacyNavigationChanged)
+
+		// TODO: remove this once the legacy navigation is gone
+		subscribe('files:legacy-view:initialized', () => {
+			logger.debug('Legacy view initialized', { ...this.currentView })
+			this.showView(this.currentView)
+		})
 	},
 
 	methods: {
@@ -196,10 +211,8 @@ export default {
 				logger.debug('Triggering legacy navigation event', params)
 				window.jQuery(newAppContent).trigger(new window.jQuery.Event('show', params))
 				window.jQuery(newAppContent).trigger(new window.jQuery.Event('urlChanged', params))
-
 			}
 
-			this.Navigation.setActive(view)
 			emit('files:navigation:changed', view)
 		},
 

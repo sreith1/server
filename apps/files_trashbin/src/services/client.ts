@@ -19,21 +19,17 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
-import type NavigationService from '../../files/src/services/Navigation'
+import { createClient, getPatcher } from 'webdav'
+import axios from '@nextcloud/axios'
+import { generateRemoteUrl } from '@nextcloud/router'
+import { getCurrentUser } from '@nextcloud/auth'
 
-import { translate as t } from '@nextcloud/l10n'
-import DeleteSvg from '@mdi/svg/svg/delete.svg?raw'
+// Add this so the server knows it is an request from the browser
+axios.defaults.headers['X-Requested-With'] = 'XMLHttpRequest'
 
-import getContent from './services/trashbin'
+// force our axios
+const patcher = getPatcher()
+patcher.patch('request', axios)
 
-const Navigation = window.OCP.Files.Navigation as NavigationService
-Navigation.register({
-	id: 'trashbin',
-	name: t('files_trashbin', 'Deleted files'),
-
-	icon: DeleteSvg,
-	order: 50,
-	sticky: true,
-
-	getContent,
-})
+const client = createClient(generateRemoteUrl(`dav/trashbin/${getCurrentUser()?.uid}`))
+export default client

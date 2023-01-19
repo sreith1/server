@@ -20,27 +20,41 @@
   -
   -->
 <template>
-	<NcAppContent v-show="!currentView?.legacy">
+	<NcAppContent v-show="!currentView?.legacy"
+		:class="{'app-content--hidden': currentView?.legacy}"
+		data-cy-files-content>
+		<!-- Current folder breadcrumbs -->
 		<BreadCrumbs :path="dir" />
+
+		<!-- Empty content placeholder -->
+		<NcEmptyContent data-cy-files-content-empty
+			:title="t('files', 'No files in here')"
+			:description="t('files', 'No files or folders have been deleted yet')">
+			<template #icon>
+				<TrashCan />
+			</template>
+		</NcEmptyContent>
 	</NcAppContent>
 </template>
 
-<script>
-import { emit, subscribe } from '@nextcloud/event-bus'
-import { generateUrl } from '@nextcloud/router'
+<script lang="ts">
 import { translate } from '@nextcloud/l10n'
 import NcAppContent from '@nextcloud/vue/dist/Components/NcAppContent.js'
-import BreadCrumbs from '../components/BreadCrumbs.vue'
+import NcEmptyContent from '@nextcloud/vue/dist/Components/NcEmptyContent.js'
+import TrashCan from 'vue-material-design-icons/TrashCan.vue'
 
+import BreadCrumbs from '../components/BreadCrumbs.vue'
 import logger from '../logger.js'
-import Navigation from '../services/Navigation.ts'
+import Navigation from '../services/Navigation'
 
 export default {
 	name: 'FilesList',
 
 	components: {
 		NcAppContent,
+		NcEmptyContent,
 		BreadCrumbs,
+		TrashCan,
 	},
 
 	props: {
@@ -53,6 +67,8 @@ export default {
 
 	data() {
 		return {
+			loading: false,
+			promise: null,
 		}
 	},
 
@@ -76,11 +92,49 @@ export default {
 		},
 	},
 
+	watch: {
+		currentView(newView, oldView) {
+			logger.debug('View changed', { newView, oldView })
+			this.fetchContent()
+		},
+
+		dir(newDir, oldDir) {
+			logger.debug('Directory changed', { newDir, oldDir })
+			this.fetchContent()
+		},
+	},
+
 	methods: {
+		async fetchContent() {
+			this.loading = true
+
+			// If we have a cancellable promise ongoing, cancel it
+			if (typeof this.promise?.cancel === 'function') {
+				this.promise.cancel()
+				logger.debug('Cancelled previous ongoing fetch')
+			}
+
+			// Fetch the current dir content
+			this.promise = this.currentView.getContent(this.dir)
+			try {
+				const content = await this.promise
+				logger.debug('Fetched content', { content })
+			} catch (error) {
+				logger.error('Error while fetching content', { error })
+			}
+		},
+
 		t: translate,
 	},
 }
 </script>
 
 <style scoped lang="scss">
+.app-content {
+	// TODO: remove after all legacy views are migrated
+	// Hides the legacy app-content if shown view is not legacy
+	&:not(&--hidden)::v-deep + #app-content {
+		display: none;
+	}
+}
 </style>
