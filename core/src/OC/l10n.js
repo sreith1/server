@@ -345,20 +345,6 @@ const L10n = {
 
 export default L10n
 
-/**
- * Returns the user's locale
- *
- * @return {string} locale string
- */
-export const getLocale = () => $('html').data('locale') ?? 'en'
-
-/**
- * Returns the user's language
- *
- * @return {string} language string
- */
-export const getLanguage = () => $('html').prop('lang')
-
 Handlebars.registerHelper('t', function(app, text) {
 	return L10n.translate(app, text)
 })
