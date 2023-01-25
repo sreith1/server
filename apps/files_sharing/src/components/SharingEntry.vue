@@ -25,7 +25,8 @@
 		<NcAvatar class="sharing-entry__avatar"
 			:is-no-user="share.type !== SHARE_TYPES.SHARE_TYPE_USER"
 			:user="share.shareWith"
-			:title="share.type === SHARE_TYPES.SHARE_TYPE_USER ? share.shareWithDisplayName : ''"
+			:display-name="share.shareWithDisplayName"
+			:tooltip-message="share.type === SHARE_TYPES.SHARE_TYPE_USER ? share.shareWith : ''"
 			:menu-position="'left'"
 			:url="share.shareWithAvatar" />
 
