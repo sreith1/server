@@ -26,7 +26,6 @@
 			:is-no-user="share.type !== SHARE_TYPES.SHARE_TYPE_USER"
 			:user="share.shareWith"
 			:display-name="share.shareWithDisplayName"
-			:tooltip-message="share.type === SHARE_TYPES.SHARE_TYPE_USER ? share.shareWith : ''"
 			:menu-position="'left'"
 			:url="share.shareWithAvatar" />
 
