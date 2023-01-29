@@ -57,6 +57,8 @@ abstract class AbstractDatabase {
 	protected $logger;
 	/** @var ISecureRandom */
 	protected $random;
+	/** @var bool */
+	protected $tryCreateDbUser;
 
 	public function __construct(IL10N $trans, SystemConfig $config, LoggerInterface $logger, ISecureRandom $random) {
 		$this->trans = $trans;
@@ -87,6 +89,8 @@ abstract class AbstractDatabase {
 		$dbHost = !empty($config['dbhost']) ? $config['dbhost'] : 'localhost';
 		$dbPort = !empty($config['dbport']) ? $config['dbport'] : '';
 		$dbTablePrefix = isset($config['dbtableprefix']) ? $config['dbtableprefix'] : 'oc_';
+
+		$this->tryCreateDbUser = getenv("SETUP_CREATE_DB_USER") !== "false";
 
 		$this->config->setValues([
 			'dbname' => $dbName,
