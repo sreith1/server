@@ -57,7 +57,6 @@ class L10NString implements \JsonSerializable {
 		$translations = $this->l10n->getTranslations();
 		$identityTranslator = $this->l10n->getIdentityTranslator();
 
-		// Use the indexed version as per \Symfony\Contracts\Translation\TranslatorInterface
 		$identity = $this->text;
 		if (array_key_exists($this->text, $translations)) {
 			$identity = $translations[$this->text];
@@ -82,7 +81,6 @@ class L10NString implements \JsonSerializable {
 			$parameters = ['%count%' => $this->count];
 		}
 
-		// $count as %count% as per \Symfony\Contracts\Translation\TranslatorInterface
 		$text = $identityTranslator->trans($identity, $parameters);
 
 		return vsprintf($text, $this->parameters);
