@@ -19,21 +19,16 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
-import type NavigationService from '../../files/src/services/Navigation'
+/* eslint-disable */
+import { mount } from 'cypress/vue2'
 
-import { translate as t } from '@nextcloud/l10n'
-import DeleteSvg from '@mdi/svg/svg/delete.svg?raw'
+type MountParams = Parameters<typeof mount>;
+type OptionsParam = MountParams[1];
 
-import getContents from './services/trashbin'
-
-const Navigation = window.OCP.Files.Navigation as NavigationService
-Navigation.register({
-	id: 'trashbin',
-	name: t('files_trashbin', 'Deleted files'),
-
-	icon: DeleteSvg,
-	order: 50,
-	sticky: true,
-
-	getContents,
-})
+declare global {
+	namespace Cypress {
+		interface Chainable {
+			mount: typeof mount;
+		}
+	}
+}

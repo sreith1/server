@@ -166,7 +166,7 @@ export default {
 			}
 
 			this.Navigation.setActive(view.id)
-			logger.debug('View changed', { id: view.id, view })
+			logger.debug('Navigation changed', { id: view.id, view })
 
 			// debugger
 			this.showView(view, oldView)
@@ -197,7 +197,7 @@ export default {
 			// Closing any opened sidebar
 			window?.OCA?.Files?.Sidebar?.close?.()
 
-			if (view.legacy) {
+			if (view?.legacy) {
 				const newAppContent = document.querySelector('#app-content #app-content-' + this.currentView.id + '.viewcontainer')
 				document.querySelectorAll('#app-content .viewcontainer').forEach(el => {
 					el.classList.add('hidden')

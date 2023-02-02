@@ -19,21 +19,12 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
-import type NavigationService from '../../files/src/services/Navigation'
+declare module '*.svg' {
+	const content: any
+	export default content
+}
 
-import { translate as t } from '@nextcloud/l10n'
-import DeleteSvg from '@mdi/svg/svg/delete.svg?raw'
-
-import getContents from './services/trashbin'
-
-const Navigation = window.OCP.Files.Navigation as NavigationService
-Navigation.register({
-	id: 'trashbin',
-	name: t('files_trashbin', 'Deleted files'),
-
-	icon: DeleteSvg,
-	order: 50,
-	sticky: true,
-
-	getContents,
-})
+declare module '*.vue' {
+	import Vue from 'vue'
+	export default Vue
+}

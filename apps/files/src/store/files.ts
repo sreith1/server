@@ -19,45 +19,68 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
-import type Node from '@nextcloud/files/dist/files/node'
-import { Store } from 'vuex'
+/* eslint-disable */
+import type { Node } from '@nextcloud/files'
+import Vue from 'vue'
+import type { FileStore, RootStore, RootOptions } from '../types'
 
-type FileStore {
-	[id: number]: Node
+const state = {
+	files: {} as FileStore,
+	roots: {} as RootStore,
 }
 
-// Create a new store instance.
-export default new Store({
-	state: {
-		files: {} as FileStore,
+const getters = {
+	/**
+	 * Get a file or folder by id
+	 */
+	getNode: (state)  => (id: number): Node|undefined => state.files[id],
+
+	/**
+	 * Get a list of files or folders by their IDs
+	 * Does not return undefined values
+	 */
+	getNodes: (state) => (ids: number[]): Node[] => ids
+		.map(id => state.files[id])
+		.filter(Boolean)
+}
+
+const mutations = {
+	updateNodes: (state, nodes: Node[]) => {
+		nodes.forEach(node => {
+			if (!node.attributes.fileid) {
+				return
+			}
+			Vue.set(state.files, node.attributes.fileid, node)
+		})
 	},
 
-	getters: {
-		/**
-		 * Get a file or folder by id
-		 */
-		getNode: (state)  => (id: number): Node|undefined => state.files[id],
+	setRoot: (state, { service, root }: RootOptions) => {
+		Vue.set(state.roots, service, root)
+	}
+}
 
-		/**
-		 * Get a list of files or folders by their IDs
-		 * Does not return undefined values
-		 */
-		getNodes: (state) => (ids: number[]): Node[] => ids
-				.map(id => state.files[id])
-				.filter(Boolean)
-	},
-	
-	mutations: {
-		updateNodes: (state, nodes: Node[]) => {
-			nodes.forEach(node => {
-				state.files[node.attributes.fileid] = node
-			})
-		}
+const actions = {
+	/**
+	 * Insert valid nodes into the store.
+	 * Roots (that does _not_ have a fileid) should
+	 * be defined in the roots store
+	 */
+	addNodes: (context, nodes: Node[]) => {
+		context.commit('updateNodes', nodes)
 	},
 
-	actions: {
-		addNode: (context, node: Node) => {
-			context.commit('updateNodes', [node])
-		},
-	},
-})
+	/**
+	 * Set the root of a service
+	 */
+	setRoot(context, { service, root }: RootOptions) {
+		context.commit('setRoot', { service, root })
+	}
+}
+
+export default {
+	namespaced: true,
+	state,
+	getters,
+	mutations,
+	actions,
+}

@@ -19,12 +19,71 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
+import client, { rootUrl } from './client'
+import { File, Folder, parseWebdavPermissions } from '@nextcloud/files'
 import { join } from 'path'
-import client from './client'
+import { getCurrentUser } from '@nextcloud/auth'
+
+const data = `<?xml version="1.0"?>
+<d:propfind  xmlns:d="DAV:"
+	xmlns:oc="http://owncloud.org/ns"
+	xmlns:nc="http://nextcloud.org/ns">
+	<d:prop>
+		<nc:trashbin-filename />
+		<nc:trashbin-deletion-time />
+		<nc:trashbin-original-location />
+		<nc:trashbin-title />
+		<d:getlastmodified />
+		<d:getetag />
+		<d:getcontenttype />
+		<d:resourcetype />
+		<oc:fileid />
+		<oc:permissions />
+		<oc:size />
+		<d:getcontentlength />
+	</d:prop>
+</d:propfind>`
+
+const resultToNode = function(node: FileStat): File | Folder {
+	const permissions = parseWebdavPermissions(node.props.permissions)
+	const owner = getCurrentUser()?.uid
+
+	const nodeData = {
+		id: node.props.fileid || 0,
+		source: join(rootUrl, node.filename),
+		mtime: new Date(node.lastmod),
+		mime: node.mime,
+		size: node.props.size || 0,
+		permissions,
+		owner,
+		attributes: {
+			...node,
+			...node.props,
+			// Override displayed name on the list
+			displayName: node.props['trashbin-filename'],
+		},
+	}
+
+	return node.type === 'file'
+		? new File(nodeData)
+		: new Folder(nodeData)
+}
 
 export default async (path: string = '/') => {
-	const response = await client.getDirectoryContents(join('/trash', path), {
+	// TODO: use only one request when webdav-client supports it
+	// @see https://github.com/perry-mitchell/webdav-client/pull/334
+	const rootResponse = await client.stat(path, {
 		details: true,
+		data,
 	})
-	return response
+
+	const contentsResponse = await client.getDirectoryContents(path, {
+		details: true,
+		data,
+	})
+
+	return {
+		root: resultToNode(rootResponse.data),
+		contents: contentsResponse.data.map(resultToNode),
+	}
 }

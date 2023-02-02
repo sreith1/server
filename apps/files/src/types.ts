@@ -19,21 +19,38 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
-import type NavigationService from '../../files/src/services/Navigation'
+/* eslint-disable */
+import type { Folder } from '@nextcloud/files'
+import type { Node } from '@nextcloud/files'
 
-import { translate as t } from '@nextcloud/l10n'
-import DeleteSvg from '@mdi/svg/svg/delete.svg?raw'
+// Global definitions
+export type Service = string
 
-import getContents from './services/trashbin'
+// Files store
+export type FileStore = {
+	[id: number]: Node
+}
 
-const Navigation = window.OCP.Files.Navigation as NavigationService
-Navigation.register({
-	id: 'trashbin',
-	name: t('files_trashbin', 'Deleted files'),
+export type RootStore = {
+	[service: Service]: Folder
+}
 
-	icon: DeleteSvg,
-	order: 50,
-	sticky: true,
+export interface RootOptions {
+	root: Folder
+	service: Service
+}
 
-	getContents,
-})
+// Paths store
+export type ServicePaths = {
+	[path: string]: Folder
+}
+
+export type ServiceStore = {
+	[service: Service]: ServicePaths
+}
+
+export interface PathOptions {
+	service: Service
+	path: string
+	node: Folder
+}

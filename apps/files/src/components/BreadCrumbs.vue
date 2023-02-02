@@ -66,8 +66,13 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+$margin: 4px;
+$navigationToggleSize: 50px;
 .breadcrumb {
 	// Put next to the navigation toggle icon
-	margin: 4px 4px 4px 50px;
+	margin: $margin $margin $margin $navigationToggleSize;
+	position: sticky;
+	top: $margin;
+	width: calc(100% - $navigationToggleSize - $margin - $margin);
 }
 </style>

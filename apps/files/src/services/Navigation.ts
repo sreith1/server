@@ -19,10 +19,16 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
-import type Node from '@nextcloud/files/dist/files/node'
+/* eslint-disable */
+import type { Folder, Node } from '@nextcloud/files'
 import isSvg from 'is-svg'
 
 import logger from '../logger'
+
+type ContentsWithRoot = {
+	root: Folder,
+	contents: Node[]
+}
 
 export interface Column {
 	/** Unique column ID */
@@ -55,7 +61,7 @@ export interface Navigation {
 	 * You _must_ also return the current directory
 	 * information alongside with its content.
 	 */
-	getContent: (path: string) => Promise<Node[]>
+	getContents: (path: string) => Promise<ContentsWithRoot[]>
 	/** The view icon as an inline svg */
 	icon: string
 	/** The view order */
@@ -159,8 +165,8 @@ const isValidNavigation = function(view: Navigation): boolean {
 	 * TODO: remove when support for legacy views is removed
 	 */
 	if (!view.legacy) {
-		if (!view.getContent || typeof view.getContent !== 'function') {
-			throw new Error('Navigation getContent is required and must be a function')
+		if (!view.getContents || typeof view.getContents !== 'function') {
+			throw new Error('Navigation getContents is required and must be a function')
 		}
 
 		if (!view.icon || typeof view.icon !== 'string' || !isSvg(view.icon)) {

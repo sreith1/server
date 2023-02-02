@@ -12,6 +12,7 @@ import SettingsService from './services/Settings.js'
 import SettingsModel from './models/Setting.js'
 
 import router from './router/router.js'
+import store from './store/index.ts'
 
 // Init private and public Files namespace
 window.OCA.Files = window.OCA.Files ?? {}
@@ -45,6 +46,7 @@ const FilesList = new ListView({
 		Navigation,
 	},
 	router,
+	store,
 })
 FilesList.$mount('#app-content-vue')
 

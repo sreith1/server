@@ -19,21 +19,33 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
-import type NavigationService from '../../files/src/services/Navigation'
+/* eslint-disable */
+import type { Folder } from '@nextcloud/files'
+import Vue from 'vue'
+import type { PathOptions, ServicePaths, ServiceStore } from '../types'
 
-import { translate as t } from '@nextcloud/l10n'
-import DeleteSvg from '@mdi/svg/svg/delete.svg?raw'
+const module = {
+	state: {
+		selected: [] as number[]
+	},
 
-import getContents from './services/trashbin'
+	mutations: {
+		set: (state, selection: number[]) => {
+			Vue.set(state, 'selected', selection)
+		}
+	},
 
-const Navigation = window.OCP.Files.Navigation as NavigationService
-Navigation.register({
-	id: 'trashbin',
-	name: t('files_trashbin', 'Deleted files'),
+	actions: {
+		set: (context, selection = [] as number[]) => {
+			context.commit('set', selection)
+		},
+		reset(context) {
+			context.commit('set', [])
+		}
+	}
+}
 
-	icon: DeleteSvg,
-	order: 50,
-	sticky: true,
-
-	getContents,
-})
+export default {
+	namespaced: true,
+	...module,
+}
