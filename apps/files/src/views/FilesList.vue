@@ -27,7 +27,7 @@
 		<BreadCrumbs :path="dir" />
 
 		<!-- Empty content placeholder -->
-		<NcEmptyContent v-if="isEmptyDir"
+		<NcEmptyContent v-if="true"
 			:title="t('files', 'No files in here')"
 			:description="t('files', 'No files or folders have been deleted yet')"
 			data-cy-files-content-empty>
@@ -35,7 +35,7 @@
 				<TrashCan />
 			</template>
 		</NcEmptyContent>
-	
+
 		<!-- File list -->
 		<FilesListVirtual v-else :nodes="dirContents" />
 	</NcAppContent>
@@ -52,6 +52,8 @@ import BreadCrumbs from '../components/BreadCrumbs.vue'
 import logger from '../logger.js'
 import Navigation from '../services/Navigation'
 import FilesListVirtual from '../components/FilesListVirtual.vue'
+import { ContentsWithRoot } from '../services/Navigation'
+import { join } from 'path'
 
 export default {
 	name: 'FilesList',
@@ -100,7 +102,11 @@ export default {
 		},
 
 		currentFolder() {
-			return this.$store.getters['paths/getPath'](this.currentViewId, this.dir)
+			if (this.dir === '/') {
+				return this.$store.getters['files/getRoot'](this.currentViewId)
+			}
+			const fileId = this.$store.getters['paths/getPath'](this.currentViewId, this.dir)
+			return this.$store.getters['files/getNode'](fileId)
 		},
 
 		dirContents() {
@@ -114,6 +120,10 @@ export default {
 
 	watch: {
 		currentView(newView, oldView) {
+			if (newView?.id === oldView?.id) {
+				return
+			}
+
 			logger.debug('View changed', { newView, oldView })
 			this.$store.dispatch('selection/reset')
 			this.fetchContent()
@@ -152,30 +162,36 @@ export default {
 			}
 
 			// Fetch the current dir contents
+			/** @type {Promise<ContentsWithRoot>} */
 			this.promise = currentView.getContents(dir)
 			try {
-				const { root, contents } = await this.promise
-				logger.debug('Fetched contents', { dir, root, contents })
+				const { folder, contents } = await this.promise
+				logger.debug('Fetched contents', { dir, folder, contents })
 
 				// Update store
 				this.$store.dispatch('files/addNodes', contents)
 
+				// Define current directory children
+				folder.children = contents.map(node => node.attributes.fileid)
+
 				// If we're in the root dir, define the root
 				if (dir === '/') {
-					console.debug('files', 'Setting root', { service: currentView.id, root })
-					this.$store.dispatch('files/setRoot', { service: currentView.id, root })
+					console.debug('files', 'Setting root', { service: currentView.id, folder })
+					this.$store.dispatch('files/setRoot', { service: currentView.id, root: folder })
+				} else
+				// Otherwise, add the folder to the store
+				if (folder.attributes.fileid) {
+					this.$store.dispatch('files/addNodes', [folder])
+					this.$store.dispatch('paths/addPath', { service: currentView.id, fileid: folder.attributes.fileid, path: dir })
+				} else {
+					// If we're here, the view API messed up
+					logger.error('Invalid root folder returned', { dir, folder, currentView })
 				}
-
-				// Define current directory children
-				root.children = contents.map(node => node.attributes.fileid)
-				this.$store.dispatch('paths/addPath', { service: currentView.id, path: this.dir, node: root })
 
 				// Update paths store
 				const folders = contents.filter(node => node.type === 'folder')
 				folders.forEach(node => {
-					// Automatically determine the path from the current folder
-					const path = node.source.replace(root.source, '')
-					this.$store.dispatch('paths/addPath', { service: currentView.id, node, path })
+					this.$store.dispatch('paths/addPath', { service: currentView.id, fileid: node.attributes.fileid, path: join(dir, node.basename) })
 				})
 			} catch (error) {
 				logger.error('Error while fetching content', { error })

@@ -19,10 +19,12 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  */
-import client, { rootUrl } from './client'
+/* eslint-disable */
 import { File, Folder, parseWebdavPermissions } from '@nextcloud/files'
-import { join } from 'path'
 import { getCurrentUser } from '@nextcloud/auth'
+import { join } from 'path'
+import client, { rootPath, rootUrl } from './client'
+import type { ContentsWithRoot } from '../../../files/src/services/Navigation'
 
 const data = `<?xml version="1.0"?>
 <d:propfind  xmlns:d="DAV:"
@@ -46,16 +48,17 @@ const data = `<?xml version="1.0"?>
 
 const resultToNode = function(node: FileStat): File | Folder {
 	const permissions = parseWebdavPermissions(node.props.permissions)
-	const owner = getCurrentUser()?.uid
+	const owner = getCurrentUser()?.uid as string
 
 	const nodeData = {
-		id: node.props.fileid || 0,
+		id: node.props.fileid as number || 0,
 		source: join(rootUrl, node.filename),
 		mtime: new Date(node.lastmod),
-		mime: node.mime,
-		size: node.props.size || 0,
+		mime: node.mime as string,
+		size: node.props.size as number || 0,
 		permissions,
 		owner,
+		root: rootPath,
 		attributes: {
 			...node,
 			...node.props,
@@ -69,7 +72,7 @@ const resultToNode = function(node: FileStat): File | Folder {
 		: new Folder(nodeData)
 }
 
-export default async (path: string = '/') => {
+export default async (path: string = '/'): Promise<ContentsWithRoot> => {
 	// TODO: use only one request when webdav-client supports it
 	// @see https://github.com/perry-mitchell/webdav-client/pull/334
 	const rootResponse = await client.stat(path, {
@@ -83,7 +86,7 @@ export default async (path: string = '/') => {
 	})
 
 	return {
-		root: resultToNode(rootResponse.data),
+		folder: resultToNode(rootResponse.data) as Folder,
 		contents: contentsResponse.data.map(resultToNode),
 	}
 }

@@ -20,9 +20,9 @@
  *
  */
 /* eslint-disable */
-import type { Node } from '@nextcloud/files'
+import type { Folder, Node } from '@nextcloud/files'
 import Vue from 'vue'
-import type { FileStore, RootStore, RootOptions } from '../types'
+import type { FileStore, RootStore, RootOptions, Service } from '../types'
 
 const state = {
 	files: {} as FileStore,
@@ -41,7 +41,11 @@ const getters = {
 	 */
 	getNodes: (state) => (ids: number[]): Node[] => ids
 		.map(id => state.files[id])
-		.filter(Boolean)
+		.filter(Boolean),
+	/**
+	 * Get a file or folder by id
+	 */
+	getRoot: (state)  => (service: Service): Folder|undefined => state.roots[service],
 }
 
 const mutations = {
@@ -55,7 +59,10 @@ const mutations = {
 	},
 
 	setRoot: (state, { service, root }: RootOptions) => {
-		Vue.set(state.roots, service, root)
+		state.roots = {
+			...state.roots,
+			[service]: root,
+		}
 	}
 }
 

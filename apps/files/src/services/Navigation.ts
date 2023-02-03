@@ -25,8 +25,8 @@ import isSvg from 'is-svg'
 
 import logger from '../logger'
 
-type ContentsWithRoot = {
-	root: Folder,
+export type ContentsWithRoot = {
+	folder: Folder,
 	contents: Node[]
 }
 

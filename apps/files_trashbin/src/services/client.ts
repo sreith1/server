@@ -23,7 +23,8 @@ import { createClient } from 'webdav'
 import { generateRemoteUrl } from '@nextcloud/router'
 import { getCurrentUser, getRequestToken } from '@nextcloud/auth'
 
-export const rootUrl = generateRemoteUrl(`dav/trashbin/${getCurrentUser()?.uid}/trash`)
+export const rootPath = `/trashbin/${getCurrentUser()?.uid}/trash`
+export const rootUrl = generateRemoteUrl('dav' + rootPath)
 const client = createClient(rootUrl, {
 	headers: {
 		requesttoken: getRequestToken(),

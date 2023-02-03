@@ -42,7 +42,7 @@ export interface RootOptions {
 
 // Paths store
 export type ServicePaths = {
-	[path: string]: Folder
+	[path: string]: number
 }
 
 export type ServiceStore = {
@@ -52,5 +52,5 @@ export type ServiceStore = {
 export interface PathOptions {
 	service: Service
 	path: string
-	node: Folder
+	fileid: number
 }

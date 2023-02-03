@@ -33,13 +33,13 @@ const module = {
 
 	getters: {
 		getPath(state: { services: ServiceStore }) {
-			return (service: string, path: string): Folder|undefined => {
+			return (service: string, path: string): number|undefined => {
 				if (!state.services[service]) {
 					return undefined
 				}
 				return state.services[service][path]
 			}
-		}
+		},
 	},
 
 	mutations: {
@@ -54,7 +54,7 @@ const module = {
 			}
 
 			// Now we can set the path
-			Vue.set(state.services[opts.service], opts.path,  opts.node)
+			Vue.set(state.services[opts.service], opts.path,  opts.fileid)
 		}
 	},
 

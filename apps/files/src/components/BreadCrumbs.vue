@@ -4,8 +4,7 @@
 		<NcBreadcrumb v-for="section in sections"
 			:key="section.dir"
 			:aria-label="t('files', `Go to the '{dir}' directory`, section)"
-			v-bind="section"
-			@click.prevent.stop="onBreadClick(section)" />
+			v-bind="section" />
 	</NcBreadcrumbs>
 </template>
 
@@ -37,29 +36,13 @@ export default {
 
 		sections() {
 			return this.dirs.map(dir => {
-				const to = this.$router.resolve({ ...this.$route, query: { dir } })
+				const to = { ...this.$route, query: { dir } }
 				return {
 					dir,
-					href: to.href,
+					to,
 					title: basename(dir),
 				}
 			})
-		},
-	},
-
-	methods: {
-		/**
-		 * Push the new directory route to the router.
-		 * The only way to get an exact match and query change.
-		 *
-		 * @param {object} section the section object
-		 * @param {string} section.dir the dir path
-		 */
-		onBreadClick({ dir }) {
-			const name = this.$route.name
-			const params = this.$route.params
-			console.debug({ name, params, query: { dir } })
-			this.$router.push({ name, params, query: { dir } })
 		},
 	},
 }
@@ -69,10 +52,13 @@ export default {
 $margin: 4px;
 $navigationToggleSize: 50px;
 .breadcrumb {
-	// Put next to the navigation toggle icon
-	margin: $margin $margin $margin $navigationToggleSize;
 	position: sticky;
 	top: $margin;
+	// Do not grow or shrink (vertically)
+	flex: 0 0;
 	width: calc(100% - $navigationToggleSize - $margin - $margin);
+	// Put next to the navigation toggle icon
+	margin: $margin $margin $margin $navigationToggleSize;
 }
+
 </style>

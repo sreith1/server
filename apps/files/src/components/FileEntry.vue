@@ -27,8 +27,11 @@
 				:value="fileid.toString()"
 				name="selectedFiles" />
 		</td>
+		<!-- Link to file and -->
 		<td class="files-list__row-name">
-			{{ displayName }}
+			<router-link :to="to">
+				{{ displayName }}
+			</router-link>
 		</td>
 	</Fragment>
 </template>
@@ -40,6 +43,7 @@ import { translate } from '@nextcloud/l10n'
 
 import NcCheckboxRadioSwitch from '@nextcloud/vue/dist/Components/NcCheckboxRadioSwitch.js'
 import logger from '../logger'
+import { join } from 'path'
 
 export default {
 	name: 'FileEntry',
@@ -61,6 +65,11 @@ export default {
 	},
 
 	computed: {
+		dir() {
+			// Remove any trailing slash but leave root slash
+			return (this.$route?.query?.dir || '/').replace(/^(.+)\/$/, '$1')
+		},
+
 		fileid() {
 			return this.source.attributes.fileid
 		},
@@ -68,6 +77,14 @@ export default {
 			return this.source.attributes.displayName
 				|| this.source.basename
 		},
+
+		to() {
+			if (this.source.type === 'folder') {
+				return { ...this.$route, query: { dir: join(this.dir, this.source.basename) } }
+			}
+			return this.source.source
+		},
+
 		selectedFiles: {
 			get() {
 				return this.$store.state.selection.selected
