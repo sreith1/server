@@ -329,7 +329,7 @@ class Directory extends \OCA\DAV\Connector\Sabre\Node implements \Sabre\DAV\ICol
 			return $this->quotaInfo;
 		}
 		try {
-			$storageInfo = \OC_Helper::getStorageInfo($this->info->getPath(), $this->info, false);
+			$storageInfo = \OC_Helper::getStorageInfo($this->info->getPath(), $this->info, false, false);
 			if ($storageInfo['quota'] === \OCP\Files\FileInfo::SPACE_UNLIMITED) {
 				$free = \OCP\Files\FileInfo::SPACE_UNLIMITED;
 			} else {
