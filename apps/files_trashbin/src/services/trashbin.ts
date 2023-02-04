@@ -20,11 +20,14 @@
  *
  */
 /* eslint-disable */
-import { File, Folder, parseWebdavPermissions } from '@nextcloud/files'
 import { getCurrentUser } from '@nextcloud/auth'
-import { join } from 'path'
-import client, { rootPath, rootUrl } from './client'
+import { File, Folder, parseWebdavPermissions } from '@nextcloud/files'
+import { generateRemoteUrl } from '@nextcloud/router'
+
+import type { FileStat, ResponseDataDetailed } from 'webdav'
 import type { ContentsWithRoot } from '../../../files/src/services/Navigation'
+
+import client, { rootPath } from './client'
 
 const data = `<?xml version="1.0"?>
 <d:propfind  xmlns:d="DAV:"
@@ -47,15 +50,15 @@ const data = `<?xml version="1.0"?>
 </d:propfind>`
 
 const resultToNode = function(node: FileStat): File | Folder {
-	const permissions = parseWebdavPermissions(node.props.permissions)
+	const permissions = parseWebdavPermissions(node.props?.permissions)
 	const owner = getCurrentUser()?.uid as string
 
 	const nodeData = {
-		id: node.props.fileid as number || 0,
-		source: join(rootUrl, node.filename),
+		id: node.props?.fileid as number || 0,
+		source: generateRemoteUrl('dav' + rootPath + node.filename),
 		mtime: new Date(node.lastmod),
 		mime: node.mime as string,
-		size: node.props.size as number || 0,
+		size: node.props?.size as number || 0,
 		permissions,
 		owner,
 		root: rootPath,
@@ -63,7 +66,7 @@ const resultToNode = function(node: FileStat): File | Folder {
 			...node,
 			...node.props,
 			// Override displayed name on the list
-			displayName: node.props['trashbin-filename'],
+			displayName: node.props?.['trashbin-filename'],
 		},
 	}
 
@@ -78,12 +81,12 @@ export default async (path: string = '/'): Promise<ContentsWithRoot> => {
 	const rootResponse = await client.stat(path, {
 		details: true,
 		data,
-	})
+	}) as ResponseDataDetailed<FileStat>
 
 	const contentsResponse = await client.getDirectoryContents(path, {
 		details: true,
 		data,
-	})
+	}) as ResponseDataDetailed<FileStat[]>
 
 	return {
 		folder: resultToNode(rootResponse.data) as Folder,

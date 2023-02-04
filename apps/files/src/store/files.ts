@@ -55,6 +55,10 @@ const mutations = {
 				return
 			}
 			Vue.set(state.files, node.attributes.fileid, node)
+			// state.files = {
+			// 	...state.files,
+			// 	[node.attributes.fileid]: node,
+			// }
 		})
 	},
 

@@ -28,9 +28,15 @@
 		:table-mode="true"
 		item-class="files-list__row"
 		wrap-class="files-list__body">
-		<caption class="files-list__caption">
-			{{ summary }}
-		</caption>
+		<template #before>
+			<caption v-show="false" class="files-list__caption">
+				{{ summary }}
+			</caption>
+		</template>
+
+		<template #header>
+			<FilesListHeader :nodes="nodes" />
+		</template>
 	</VirtualList>
 </template>
 
@@ -40,12 +46,14 @@ import { translate, translatePlural } from '@nextcloud/l10n'
 import VirtualList from 'vue-virtual-scroll-list'
 
 import FileEntry from './FileEntry.vue'
+import FilesListHeader from './FilesListHeader.vue'
 
 export default {
 	name: 'FilesListVirtual',
 
 	components: {
 		VirtualList,
+		FilesListHeader,
 	},
 
 	props: {
@@ -91,19 +99,24 @@ export default {
 
 <style scoped lang="scss">
 .files-list {
+	--row-height: 55px;
+	--checkbox-padding: calc((var(--row-height) - var(--checkbox-size)) / 2);
+	--checkbox-size: 24px;
+	--clickable-area: 44px;
+	--icon-preview-size: 32px;
+
 	display: block;
 	overflow: auto;
 	height: 100%;
 
 	&::v-deep {
-		.files-list__body {
+		tbody, thead, tfoot {
 			display: flex;
 			flex-direction: column;
 			width: 100%;
 		}
 
-		.files-list__row {
-			--row-height: 55px;
+		thead, .files-list__row {
 			border-bottom: 1px solid var(--color-border);
 		}
 	}

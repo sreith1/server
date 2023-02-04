@@ -23,14 +23,33 @@
 	<NcAppContent v-show="!currentView?.legacy"
 		:class="{'app-content--hidden': currentView?.legacy}"
 		data-cy-files-content>
-		<!-- Current folder breadcrumbs -->
-		<BreadCrumbs :path="dir" />
+		<div class="files-list__header">
+			<!-- Current folder breadcrumbs -->
+			<BreadCrumbs :path="dir" />
+
+			<!-- Secondary loading indicator -->
+			<NcLoadingIcon v-if="isRefreshing" class="files-list__refresh-icon" />
+		</div>
+
+		<!-- Initial loading -->
+		<NcLoadingIcon v-if="loading && !isRefreshing"
+			class="files-list__loading-icon"
+			:size="38"
+			:title="t('files', 'Loading current folder')" />
 
 		<!-- Empty content placeholder -->
-		<NcEmptyContent v-if="true"
+		<NcEmptyContent v-else-if="!loading && isEmptyDir"
 			:title="t('files', 'No files in here')"
 			:description="t('files', 'No files or folders have been deleted yet')"
 			data-cy-files-content-empty>
+			<template #action>
+				<NcButton v-if="dir !== '/'"
+					aria-label="t('files', 'Go to the previous folder')"
+					type="primary"
+					:to="toPreviousDir">
+					{{ t('files', 'Go back') }}
+				</NcButton>
+			</template>
 			<template #icon>
 				<TrashCan />
 			</template>
@@ -45,7 +64,9 @@
 import { Folder } from '@nextcloud/files'
 import { translate } from '@nextcloud/l10n'
 import NcAppContent from '@nextcloud/vue/dist/Components/NcAppContent.js'
+import NcButton from '@nextcloud/vue/dist/Components/NcButton.js'
 import NcEmptyContent from '@nextcloud/vue/dist/Components/NcEmptyContent.js'
+import NcLoadingIcon from '@nextcloud/vue/dist/Components/NcLoadingIcon.js'
 import TrashCan from 'vue-material-design-icons/TrashCan.vue'
 
 import BreadCrumbs from '../components/BreadCrumbs.vue'
@@ -62,7 +83,9 @@ export default {
 		BreadCrumbs,
 		FilesListVirtual,
 		NcAppContent,
+		NcButton,
 		NcEmptyContent,
+		NcLoadingIcon,
 		TrashCan,
 	},
 
@@ -76,7 +99,7 @@ export default {
 
 	data() {
 		return {
-			loading: false,
+			loading: true,
 			promise: null,
 		}
 	},
@@ -96,11 +119,19 @@ export default {
 			return this.Navigation.views
 		},
 
+		/**
+		 * The current directory query.
+		 * @return {string}
+		 */
 		dir() {
 			// Remove any trailing slash but leave root slash
 			return (this.$route?.query?.dir || '/').replace(/^(.+)\/$/, '$1')
 		},
 
+		/**
+		 * The current folder.
+		 * @return {Folder|undefined}
+		 */
 		currentFolder() {
 			if (this.dir === '/') {
 				return this.$store.getters['files/getRoot'](this.currentViewId)
@@ -109,12 +140,38 @@ export default {
 			return this.$store.getters['files/getNode'](fileId)
 		},
 
+		/**
+		 * The current directory contents.
+		 * @return {Node[]}
+		 */
 		dirContents() {
 			return (this.currentFolder?.children || []).map(this.getNode)
 		},
 
+		/**
+		 * The current directory is empty.
+		 */
 		isEmptyDir() {
-			return this.loading === false && this.dirContents.length === 0
+			return this.dirContents.length === 0
+		},
+
+		/**
+		 * We are refreshing the current directory.
+		 * But we already have a cached version of it
+		 * that is not empty.
+		 */
+		isRefreshing() {
+			return this.currentFolder !== undefined
+				&& !this.isEmptyDir
+				&& this.loading
+		},
+
+		/**
+		 * Route to the previous directory.
+		 */
+		toPreviousDir() {
+			const dir = this.dir.split('/').slice(0, -1).join('/') || '/'
+			return { ...this.$route, query: { dir } }
 		},
 	},
 
@@ -195,6 +252,8 @@ export default {
 				})
 			} catch (error) {
 				logger.error('Error while fetching content', { error })
+			} finally {
+				this.loading = false
 			}
 
 		},
@@ -229,8 +288,31 @@ export default {
 	}
 }
 
-.files-list-entry {
-	height: 55px;
+$margin: 4px;
+$navigationToggleSize: 50px;
+
+.files-list {
+	&__header {
+		display: flex;
+		align-content: center;
+		// Do not grow or shrink (vertically)
+		flex: 0 0;
+		// Align with the navigation toggle icon
+		margin: $margin $margin $margin $navigationToggleSize;
+		> * {
+			// Do not grow or shrink (horizontally)
+			// Only the breadcrumbs shrinks
+			flex: 0 0;
+		}
+	}
+	&__refresh-icon {
+		flex: 0 0 44px;
+		width: 44px;
+		height: 44px;
+	}
+	&__loading-icon {
+		margin: auto;
+	}
 }
 
 </style>

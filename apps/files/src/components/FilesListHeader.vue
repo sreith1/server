@@ -20,53 +20,37 @@
   -
   -->
 <template>
-	<Fragment>
-		<td class="files-list__row-checkbox">
-			<NcCheckboxRadioSwitch :aria-label="t('files', 'Select the row for {displayName}', { displayName })"
-				:checked.sync="selectedFiles"
-				:value="fileid.toString()"
-				name="selectedFiles" />
-		</td>
+	<tr>
+		<th class="files-list__row-checkbox">
+			<NcCheckboxRadioSwitch v-bind="selectAllBind" @update:checked="onToggleAll" />
+		</th>
 
 		<!-- Icon or preview -->
-		<td class="files-list__row-icon">
-			<FolderIcon v-if="source.type === 'folder'" />
-		</td>
+		<th class="files-list__row-icon" />
 
 		<!-- Link to file and -->
-		<td class="files-list__row-name">
-			<a v-bind="linkTo">
-				{{ displayName }}
-			</a>
-		</td>
-	</Fragment>
+		<th class="files-list__row-name">
+			{{ t('files', 'Name') }}
+		</th>
+	</tr>
 </template>
 
 <script lang="ts">
-import { Folder, File } from '@nextcloud/files'
-import { Fragment } from 'vue-fragment'
-import { join } from 'path'
 import { translate } from '@nextcloud/l10n'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/dist/Components/NcCheckboxRadioSwitch.js'
-import FolderIcon from 'vue-material-design-icons/Folder.vue'
 
 import logger from '../logger'
+import { File, Folder } from '@nextcloud/files'
 
 export default {
-	name: 'FileEntry',
+	name: 'FilesListHeader',
 
 	components: {
-		FolderIcon,
-		Fragment,
 		NcCheckboxRadioSwitch,
 	},
 
 	props: {
-		index: {
-			type: Number,
-			required: true,
-		},
-		source: {
+		nodes: {
 			type: [File, Folder],
 			required: true,
 		},
@@ -78,38 +62,30 @@ export default {
 			return (this.$route?.query?.dir || '/').replace(/^(.+)\/$/, '$1')
 		},
 
-		fileid() {
-			return this.source.attributes.fileid
-		},
-		displayName() {
-			return this.source.attributes.displayName
-				|| this.source.basename
-		},
-
-		linkTo() {
-			if (this.source.type === 'folder') {
-				const to = { ...this.$route, query: { dir: join(this.dir, this.source.basename) } }
-				return {
-					is: 'router-link',
-					title: this.t('files', 'Open folder {name}', { name: this.displayName }),
-					to,
-				}
-			}
+		selectAllBind() {
 			return {
-				href: this.source.source,
-				// TODO: Use first action title ?
-				title: this.t('files', 'Download file {name}', { name: this.displayName }),
+				ariaLabel: this.isNoneSelected || this.isSomeSelected
+					? this.t('files', 'Select all')
+					: this.t('files', 'Unselect all'),
+				checked: this.isAllSelected,
+				indeterminate: this.isSomeSelected,
 			}
 		},
 
-		selectedFiles: {
-			get() {
-				return this.$store.state.selection.selected
-			},
-			set(selection) {
-				logger.debug('Added node to selection', { selection })
-				this.$store.dispatch('selection/set', selection)
-			},
+		isAllSelected() {
+			return this.selectedFiles.length === this.nodes.length
+		},
+
+		isNoneSelected() {
+			return this.selectedFiles.length === 0
+		},
+
+		isSomeSelected() {
+			return !this.isAllSelected && !this.isNoneSelected
+		},
+
+		selectedFiles() {
+			return this.$store.state.selection.selected
 		},
 	},
 
@@ -120,8 +96,19 @@ export default {
 		 * @param {number} fileId the file id to get
 		 * @return {Folder|File}
 		 */
-		 getNode(fileId) {
+		getNode(fileId) {
 			return this.$store.getters['files/getNode'](fileId)
+		},
+
+		onToggleAll(selected) {
+			if (selected) {
+				const selection = this.nodes.map(node => node.attributes.fileid.toString())
+				logger.debug('Added all nodes to selection', { selection })
+				this.$store.dispatch('selection/set', selection)
+			} else {
+				logger.debug('Cleared selection')
+				this.$store.dispatch('selection/reset')
+			}
 		},
 
 		t: translate,
@@ -131,4 +118,5 @@ export default {
 
 <style scoped lang="scss">
 @import '../mixins/fileslist-row.scss'
+
 </style>
