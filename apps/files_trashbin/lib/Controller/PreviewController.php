@@ -90,7 +90,8 @@ class PreviewController extends Controller {
 	public function getPreview(
 		int $fileId = -1,
 		int $x = 128,
-		int $y = 128
+		int $y = 128,
+		int $a = 1,
 	) {
 		if ($fileId === -1 || $x === 0 || $y === 0) {
 			return new DataResponse([], Http::STATUS_BAD_REQUEST);
@@ -118,7 +119,7 @@ class PreviewController extends Controller {
 				$mimeType = $this->mimeTypeDetector->detectPath($file->getName());
 			}
 
-			$f = $this->previewManager->getPreview($file, $x, $y, true, IPreview::MODE_FILL, $mimeType);
+			$f = $this->previewManager->getPreview($file, $x, $y, $a, IPreview::MODE_FILL, $mimeType);
 			$response = new Http\FileDisplayResponse($f, Http::STATUS_OK, ['Content-Type' => $f->getMimeType()]);
 
 			// Cache previews for 24H
