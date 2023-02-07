@@ -39,6 +39,8 @@
 namespace OC\App;
 
 use OC\AppConfig;
+use OC\AppFramework\Bootstrap\Coordinator;
+use OC\ServerNotAvailableException;
 use OCP\App\AppPathNotFoundException;
 use OCP\App\IAppManager;
 use OCP\App\ManagerEvent;
@@ -48,6 +50,7 @@ use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\IUserSession;
+use OCP\Settings\IManager as ISettingsManager;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -102,6 +105,9 @@ class AppManager implements IAppManager {
 
 	/** @var array */
 	private $autoDisabledApps = [];
+
+	/** @var array<string, true> */
+	private array $loadedApps = [];
 
 	public function __construct(IUserSession $userSession,
 								IConfig $config,
@@ -301,6 +307,133 @@ class AppManager implements IAppManager {
 			$ignoreMaxApps[] = $appId;
 			$this->config->setSystemValue('app_install_overwrite', $ignoreMaxApps);
 		}
+	}
+
+	public function loadApp(string $app): void {
+		if (isset($this->loadedApps[$app])) {
+			return;
+		}
+		$this->loadedApps[$app] = true;
+		$appPath = \OC_App::getAppPath($app);
+		if ($appPath === false) {
+			return;
+		}
+
+		// in case someone calls loadApp() directly
+		\OC_App::registerAutoloading($app, $appPath);
+
+		/** @var Coordinator $coordinator */
+		$coordinator = \OC::$server->get(Coordinator::class);
+		$isBootable = $coordinator->isBootable($app);
+
+		$hasAppPhpFile = is_file($appPath . '/appinfo/app.php');
+
+		\OC::$server->getEventLogger()->start('bootstrap:load_app_' . $app, 'Load app: ' . $app);
+		if ($isBootable && $hasAppPhpFile) {
+			\OC::$server->getLogger()->error('/appinfo/app.php is not loaded when \OCP\AppFramework\Bootstrap\IBootstrap on the application class is used. Migrate everything from app.php to the Application class.', [
+				'app' => $app,
+			]);
+		} elseif ($hasAppPhpFile) {
+			\OC::$server->getLogger()->debug('/appinfo/app.php is deprecated, use \OCP\AppFramework\Bootstrap\IBootstrap on the application class instead.', [
+				'app' => $app,
+			]);
+			try {
+				self::requireAppFile($appPath);
+			} catch (\Throwable $ex) {
+				if ($ex instanceof ServerNotAvailableException) {
+					throw $ex;
+				}
+				if (!\OC::$server->getAppManager()->isShipped($app) && !self::isType($app, ['authentication'])) {
+					\OC::$server->getLogger()->logException($ex, [
+						'message' => "App $app threw an error during app.php load and will be disabled: " . $ex->getMessage(),
+					]);
+
+					// Only disable apps which are not shipped and that are not authentication apps
+					\OC::$server->getAppManager()->disableApp($app, true);
+				} else {
+					\OC::$server->getLogger()->logException($ex, [
+						'message' => "App $app threw an error during app.php load: " . $ex->getMessage(),
+					]);
+				}
+			}
+		}
+		\OC::$server->getEventLogger()->end('bootstrap:load_app_' . $app);
+
+		$coordinator->bootApp($app);
+
+		$info = self::getAppInfo($app);
+		if (!empty($info['activity']['filters'])) {
+			foreach ($info['activity']['filters'] as $filter) {
+				\OC::$server->getActivityManager()->registerFilter($filter);
+			}
+		}
+		if (!empty($info['activity']['settings'])) {
+			foreach ($info['activity']['settings'] as $setting) {
+				\OC::$server->getActivityManager()->registerSetting($setting);
+			}
+		}
+		if (!empty($info['activity']['providers'])) {
+			foreach ($info['activity']['providers'] as $provider) {
+				\OC::$server->getActivityManager()->registerProvider($provider);
+			}
+		}
+
+		if (!empty($info['settings']['admin'])) {
+			foreach ($info['settings']['admin'] as $setting) {
+				\OC::$server->get(ISettingsManager::class)->registerSetting('admin', $setting);
+			}
+		}
+		if (!empty($info['settings']['admin-section'])) {
+			foreach ($info['settings']['admin-section'] as $section) {
+				\OC::$server->get(ISettingsManager::class)->registerSection('admin', $section);
+			}
+		}
+		if (!empty($info['settings']['personal'])) {
+			foreach ($info['settings']['personal'] as $setting) {
+				\OC::$server->get(ISettingsManager::class)->registerSetting('personal', $setting);
+			}
+		}
+		if (!empty($info['settings']['personal-section'])) {
+			foreach ($info['settings']['personal-section'] as $section) {
+				\OC::$server->get(ISettingsManager::class)->registerSection('personal', $section);
+			}
+		}
+
+		if (!empty($info['collaboration']['plugins'])) {
+			// deal with one or many plugin entries
+			$plugins = isset($info['collaboration']['plugins']['plugin']['@value']) ?
+				[$info['collaboration']['plugins']['plugin']] : $info['collaboration']['plugins']['plugin'];
+			foreach ($plugins as $plugin) {
+				if ($plugin['@attributes']['type'] === 'collaborator-search') {
+					$pluginInfo = [
+						'shareType' => $plugin['@attributes']['share-type'],
+						'class' => $plugin['@value'],
+					];
+					\OC::$server->getCollaboratorSearch()->registerPlugin($pluginInfo);
+				} elseif ($plugin['@attributes']['type'] === 'autocomplete-sort') {
+					\OC::$server->getAutoCompleteManager()->registerSorter($plugin['@value']);
+				}
+			}
+		}
+	}
+	/**
+	 * Check if an app is loaded
+	 * @param string $app app id
+	 * @since 26.0.0
+	 */
+	public function isAppLoaded(string $app): bool {
+		return isset($this->loadedApps[$app]);
+	}
+
+	/**
+	 * Load app.php from the given app
+	 *
+	 * @param string $app app name
+	 * @throws \Error
+	 */
+	private static function requireAppFile(string $app): void {
+		// encapsulated here to avoid variable scope conflicts
+		require_once $app . '/appinfo/app.php';
 	}
 
 	/**
