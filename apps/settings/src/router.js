@@ -126,6 +126,7 @@ router.afterEach(async (to) => {
 	const metaTitle = await to.meta.title?.(to)
 	if (metaTitle) {
 		document.title = `${metaTitle} - ${baseTitle}`
+		document.getElementById('pageHeadingLevel2').textContent = `${t('settings', 'Subsection: ')} ${metaTitle}`
 	} else {
 		document.title = baseTitle
 	}
