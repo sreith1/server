@@ -231,7 +231,7 @@ class AppManager implements IAppManager {
 	public function isType(string $app, array $types): bool {
 		$appTypes = $this->getAppTypes($app);
 		foreach ($types as $type) {
-			if (array_search($type, $appTypes) !== false) {
+			if (in_array($type, $appTypes, true)) {
 				return true;
 			}
 		}
@@ -247,7 +247,7 @@ class AppManager implements IAppManager {
 	private function getAppTypes(string $app): array {
 		//load the cache
 		if (count($this->appTypes) === 0) {
-			$this->appTypes = \OC::$server->getAppConfig()->getValues(false, 'types');
+			$this->appTypes = $this->appConfig->getValues(false, 'types') ?: [];
 		}
 
 		if (isset($this->appTypes[$app])) {
