@@ -337,6 +337,7 @@
 		_onAfterDirectoryChanged: function(e) {
 			if (e.dir && e.fileId) {
 				this._changeUrl(this.navigation.getActiveItem(), e.dir, e.fileId);
+				window._nc_event_bus.emit('files:navigation:changed')
 			}
 		},
 
