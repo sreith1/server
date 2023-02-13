@@ -57,12 +57,9 @@ $getUserAvatar = static function (int $size) use ($_): string {
 		</div>
 
 		<header role="banner" id="header">
-			<h1 class="hidden-visually">
-				<?php p($l->t('Section').': ').p(!empty($_['application'])?$_['application']:''); ?>
+			<h1 class="hidden-visually" id="pageHeadingLevel1">
+				<?php p(!empty($_['pageTitle'])?$_['pageTitle']:''); ?>
 			</h1>
-			<h2 class="hidden-visually" id="pageHeadingLevel2">
-				<?php p($l->t('Subsection').': ').p(!empty($_['pageTitle'])?$_['pageTitle']:''); ?>
-			</h2>
 			<div class="header-left">
 				<a href="<?php print_unescaped($_['logoUrl'] ?: link_to('', 'index.php')); ?>"
 					id="nextcloud">
