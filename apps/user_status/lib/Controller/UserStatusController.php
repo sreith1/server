@@ -8,6 +8,7 @@ declare(strict_types=1);
  * @author Georg Ehrke <oc.list@georgehrke.com>
  * @author Joas Schilling <coding@schilljs.com>
  * @author Simon Spannagel <simonspa@kth.se>
+ * @author Kate Döen <kate.doeen@nextcloud.com>
  *
  * @license GNU AGPL version 3 or any later version
  *
@@ -33,8 +34,10 @@ use OCA\UserStatus\Exception\InvalidMessageIdException;
 use OCA\UserStatus\Exception\InvalidStatusIconException;
 use OCA\UserStatus\Exception\InvalidStatusTypeException;
 use OCA\UserStatus\Exception\StatusMessageTooLongException;
+use OCA\UserStatus\ResponseDefinitions;
 use OCA\UserStatus\Service\StatusService;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSBadRequestException;
 use OCP\AppFramework\OCS\OCSNotFoundException;
@@ -42,6 +45,10 @@ use OCP\AppFramework\OCSController;
 use OCP\ILogger;
 use OCP\IRequest;
 
+/**
+ * @psalm-import-type StatusType from ResponseDefinitions
+ * @psalm-import-type PrivateUserStatus from ResponseDefinitions
+ */
 class UserStatusController extends OCSController {
 
 	/** @var string */
@@ -76,7 +83,7 @@ class UserStatusController extends OCSController {
 	/**
 	 * @NoAdminRequired
 	 *
-	 * @return DataResponse
+	 * @return DataResponse<PrivateUserStatus, Http::STATUS_OK>
 	 * @throws OCSNotFoundException
 	 */
 	public function getStatus(): DataResponse {
@@ -92,8 +99,8 @@ class UserStatusController extends OCSController {
 	/**
 	 * @NoAdminRequired
 	 *
-	 * @param string $statusType
-	 * @return DataResponse
+	 * @param StatusType $statusType
+	 * @return DataResponse<PrivateUserStatus, Http::STATUS_OK>
 	 * @throws OCSBadRequestException
 	 */
 	public function setStatus(string $statusType): DataResponse {
@@ -113,7 +120,7 @@ class UserStatusController extends OCSController {
 	 *
 	 * @param string $messageId
 	 * @param int|null $clearAt
-	 * @return DataResponse
+	 * @return DataResponse<PrivateUserStatus, Http::STATUS_OK>
 	 * @throws OCSBadRequestException
 	 */
 	public function setPredefinedMessage(string $messageId,
@@ -137,7 +144,7 @@ class UserStatusController extends OCSController {
 	 * @param string|null $statusIcon
 	 * @param string|null $message
 	 * @param int|null $clearAt
-	 * @return DataResponse
+	 * @return DataResponse<PrivateUserStatus, Http::STATUS_OK>
 	 * @throws OCSBadRequestException
 	 */
 	public function setCustomMessage(?string $statusIcon,
@@ -167,7 +174,7 @@ class UserStatusController extends OCSController {
 	/**
 	 * @NoAdminRequired
 	 *
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 */
 	public function clearStatus(): DataResponse {
 		$this->service->clearStatus($this->userId);
@@ -177,7 +184,7 @@ class UserStatusController extends OCSController {
 	/**
 	 * @NoAdminRequired
 	 *
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 */
 	public function clearMessage(): DataResponse {
 		$this->service->clearMessage($this->userId);
@@ -186,7 +193,7 @@ class UserStatusController extends OCSController {
 
 	/**
 	 * @param UserStatus $status
-	 * @return array
+	 * @return PrivateUserStatus
 	 */
 	private function formatStatus(UserStatus $status): array {
 		return [

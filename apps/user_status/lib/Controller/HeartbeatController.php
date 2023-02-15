@@ -6,6 +6,7 @@ declare(strict_types=1);
  * @copyright Copyright (c) 2020, Georg Ehrke
  *
  * @author Georg Ehrke <oc.list@georgehrke.com>
+ * @author Kate Döen <kate.doeen@nextcloud.com>
  *
  * @license GNU AGPL version 3 or any later version
  *
@@ -26,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\UserStatus\Controller;
 
 use OCA\UserStatus\Db\UserStatus;
+use OCA\UserStatus\ResponseDefinitions;
 use OCA\UserStatus\Service\StatusService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -39,6 +41,10 @@ use OCP\IUserSession;
 use OCP\User\Events\UserLiveStatusEvent;
 use OCP\UserStatus\IUserStatus;
 
+/**
+ * @psalm-import-type StatusType from ResponseDefinitions
+ * @psalm-import-type PrivateUserStatus from ResponseDefinitions
+ */
 class HeartbeatController extends OCSController {
 
 	/** @var IEventDispatcher */
@@ -69,8 +75,12 @@ class HeartbeatController extends OCSController {
 	/**
 	 * @NoAdminRequired
 	 *
-	 * @param string $status
-	 * @return DataResponse
+	 * @param StatusType $status Only online, away
+	 *
+	 * @return DataResponse<PrivateUserStatus, Http::STATUS_OK>|DataResponse<array, Http::STATUS_BAD_REQUEST|Http::STATUS_INTERNAL_SERVER_ERROR|Http::STATUS_NO_CONTENT>
+	 * 200: Status successfully updated
+	 * 204: User has no status to update
+	 * 400: Invalid status to update
 	 */
 	public function heartbeat(string $status): DataResponse {
 		if (!\in_array($status, [IUserStatus::ONLINE, IUserStatus::AWAY], true)) {
