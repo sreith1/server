@@ -26,6 +26,7 @@ declare(strict_types=1);
  * @author Valdnet <47037905+Valdnet@users.noreply.github.com>
  * @author Vincent Petry <vincent@nextcloud.com>
  * @author waleczny <michal@walczak.xyz>
+ * @author Kate Döen <kate.doeen@nextcloud.com>
  *
  * @license AGPL-3.0
  *
@@ -42,15 +43,18 @@ declare(strict_types=1);
  * along with this program. If not, see <http://www.gnu.org/licenses/>
  *
  */
+
 namespace OCA\Files_Sharing\Controller;
 
 use OC\Files\FileInfo;
 use OC\Files\Storage\Wrapper\Wrapper;
 use OCA\Files_Sharing\Exceptions\SharingRightsException;
 use OCA\Files_Sharing\External\Storage;
+use OCA\Files_Sharing\ResponseDefinitions;
 use OCA\Files_Sharing\SharedStorage;
 use OCA\Files\Helper;
 use OCP\App\IAppManager;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSBadRequestException;
 use OCP\AppFramework\OCS\OCSException;
@@ -85,6 +89,8 @@ use OCP\UserStatus\IManager as IUserStatusManager;
  * Class Share20OCS
  *
  * @package OCA\Files_Sharing\API
+ *
+ * @psalm-import-type ShareItem from ResponseDefinitions
  */
 class ShareAPIController extends OCSController {
 
@@ -170,7 +176,7 @@ class ShareAPIController extends OCSController {
 	 *
 	 * @param \OCP\Share\IShare $share
 	 * @param Node|null $recipientNode
-	 * @return array
+	 * @return ShareItem
 	 * @throws NotFoundException In case the node can't be resolved.
 	 *
 	 * @suppress PhanUndeclaredClassMethod
@@ -366,8 +372,8 @@ class ShareAPIController extends OCSController {
 	 * @NoAdminRequired
 	 *
 	 * @param string $id
-	 * @param bool $includeTags
-	 * @return DataResponse
+	 * @param bool $include_tags
+	 * @return DataResponse<ShareItem, Http::STATUS_OK>
 	 * @throws OCSNotFoundException
 	 */
 	public function getShare(string $id, bool $include_tags = false): DataResponse {
@@ -402,8 +408,9 @@ class ShareAPIController extends OCSController {
 	 * @NoAdminRequired
 	 *
 	 * @param string $id
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSNotFoundException
+	 * @throws OCSForbiddenException
 	 */
 	public function deleteShare(string $id): DataResponse {
 		try {
@@ -442,24 +449,22 @@ class ShareAPIController extends OCSController {
 	/**
 	 * @NoAdminRequired
 	 *
-	 * @param string $path
-	 * @param int $permissions
+	 * @param string|null $path
+	 * @param int|null $permissions
 	 * @param int $shareType
-	 * @param string $shareWith
+	 * @param string|null $shareWith
 	 * @param string $publicUpload
 	 * @param string $password
-	 * @param string $sendPasswordByTalk
+	 * @param string|null $sendPasswordByTalk
 	 * @param string $expireDate
 	 * @param string $label
-	 * @param string $attributes
+	 * @param string|null $attributes
 	 *
-	 * @return DataResponse
-	 * @throws NotFoundException
+	 * @return DataResponse<ShareItem, Http::STATUS_OK>
 	 * @throws OCSBadRequestException
 	 * @throws OCSException
 	 * @throws OCSForbiddenException
 	 * @throws OCSNotFoundException
-	 * @throws InvalidPathException
 	 * @suppress PhanUndeclaredClassMethod
 	 */
 	public function createShare(
@@ -722,7 +727,7 @@ class ShareAPIController extends OCSController {
 	 * @param null|Node $node
 	 * @param boolean $includeTags
 	 *
-	 * @return array
+	 * @return ShareItem[]
 	 */
 	private function getSharedWithMe($node, bool $includeTags): array {
 		$userShares = $this->shareManager->getSharedWith($this->currentUser, IShare::TYPE_USER, $node, -1, 0);
@@ -758,7 +763,7 @@ class ShareAPIController extends OCSController {
 	/**
 	 * @param \OCP\Files\Node $folder
 	 *
-	 * @return array
+	 * @return ShareItem[]
 	 * @throws OCSBadRequestException
 	 * @throws NotFoundException
 	 */
@@ -828,9 +833,7 @@ class ShareAPIController extends OCSController {
 	 *
 	 * @param string $include_tags
 	 *
-	 * @return DataResponse
-	 * @throws NotFoundException
-	 * @throws OCSBadRequestException
+	 * @return DataResponse<ShareItem[], Http::STATUS_OK>
 	 * @throws OCSNotFoundException
 	 */
 	public function getShares(
@@ -876,7 +879,7 @@ class ShareAPIController extends OCSController {
 	 * @param bool $subFiles
 	 * @param bool $includeTags
 	 *
-	 * @return array
+	 * @return ShareItem[]
 	 * @throws NotFoundException
 	 * @throws OCSBadRequestException
 	 */
@@ -965,11 +968,10 @@ class ShareAPIController extends OCSController {
 	 * - Get shares for a specific path (?path=...)
 	 * - Get all shares in a folder (?subfiles=true&path=..)
 	 *
-	 * @return DataResponse
+	 * @return DataResponse<ShareItem[], Http::STATUS_OK>
 	 * @throws InvalidPathException
 	 * @throws NotFoundException
 	 * @throws OCSNotFoundException
-	 * @throws OCSBadRequestException
 	 * @throws SharingRightsException
 	 */
 	public function getInheritedShares(string $path): DataResponse {
@@ -1055,18 +1057,16 @@ class ShareAPIController extends OCSController {
 	 * @NoAdminRequired
 	 *
 	 * @param string $id
-	 * @param int $permissions
-	 * @param string $password
-	 * @param string $sendPasswordByTalk
-	 * @param string $publicUpload
-	 * @param string $expireDate
-	 * @param string $note
-	 * @param string $label
-	 * @param string $hideDownload
-	 * @param string $attributes
-	 * @return DataResponse
-	 * @throws LockedException
-	 * @throws NotFoundException
+	 * @param int|null $permissions
+	 * @param string|null $password
+	 * @param string|null $sendPasswordByTalk
+	 * @param string|null $publicUpload
+	 * @param string|null $expireDate
+	 * @param string|null $note
+	 * @param string|null $label
+	 * @param string|null $hideDownload
+	 * @param string|null $attributes
+	 * @return DataResponse<ShareItem, Http::STATUS_OK>
 	 * @throws OCSBadRequestException
 	 * @throws OCSForbiddenException
 	 * @throws OCSNotFoundException
@@ -1268,6 +1268,8 @@ class ShareAPIController extends OCSController {
 
 	/**
 	 * @NoAdminRequired
+	 *
+	 * @return DataResponse<ShareItem[], Http::STATUS_OK>
 	 */
 	public function pendingShares(): DataResponse {
 		$pendingShares = [];
@@ -1320,7 +1322,7 @@ class ShareAPIController extends OCSController {
 	 * @NoAdminRequired
 	 *
 	 * @param string $id
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSNotFoundException
 	 * @throws OCSException
 	 * @throws OCSBadRequestException

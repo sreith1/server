@@ -43,6 +43,8 @@ use function array_slice;
 use function array_values;
 use Generator;
 use OC\Collaboration\Collaborators\SearchResult;
+use OCA\Files_Sharing\ResponseDefinitions;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSBadRequestException;
 use OCP\AppFramework\OCSController;
@@ -56,6 +58,10 @@ use OCP\Share\IShare;
 use OCP\Share\IManager;
 use function usort;
 
+/**
+ * @psalm-import-type ShareesSearchResult from ResponseDefinitions
+ * @psalm-import-type ShareesRecommendedResult from ResponseDefinitions
+ */
 class ShareesAPIController extends OCSController {
 
 	/** @var string */
@@ -76,7 +82,7 @@ class ShareesAPIController extends OCSController {
 	/** @var int */
 	protected $limit = 10;
 
-	/** @var array */
+	/** @var ShareesSearchResult */
 	protected $result = [
 		'exact' => [
 			'users' => [],
@@ -132,15 +138,15 @@ class ShareesAPIController extends OCSController {
 	 * @NoAdminRequired
 	 *
 	 * @param string $search
-	 * @param string $itemType
+	 * @param string|null $itemType
 	 * @param int $page
 	 * @param int $perPage
-	 * @param int|int[] $shareType
+	 * @param int|int[]|null $shareType
 	 * @param bool $lookup
-	 * @return DataResponse
+	 * @return DataResponse<ShareesSearchResult, Http::STATUS_OK>
 	 * @throws OCSBadRequestException
 	 */
-	public function search(string $search = '', string $itemType = null, int $page = 1, int $perPage = 200, $shareType = null, bool $lookup = false): DataResponse {
+	public function search(string $search = '', string $itemType = null, int $page = 1, int $perPage = 200, int|array $shareType = null, bool $lookup = false): DataResponse {
 
 		// only search for string larger than a given threshold
 		$threshold = $this->config->getSystemValueInt('sharing.minSearchStringLength', 0);
@@ -201,7 +207,7 @@ class ShareesAPIController extends OCSController {
 		if ($shareType !== null && is_array($shareType)) {
 			$shareTypes = array_intersect($shareTypes, $shareType);
 		} elseif (is_numeric($shareType)) {
-			$shareTypes = array_intersect($shareTypes, [(int) $shareType]);
+			$shareTypes = array_intersect($shareTypes, [$shareType]);
 		}
 		sort($shareTypes);
 
@@ -325,11 +331,12 @@ class ShareesAPIController extends OCSController {
 	/**
 	 * @NoAdminRequired
 	 *
-	 * @param string $itemType
-	 * @return DataResponse
+	 * @param string|null $itemType
+	 * @param int|int[]|null $shareType
+	 * @return DataResponse<ShareesRecommendedResult, Http::STATUS_OK>
 	 * @throws OCSBadRequestException
 	 */
-	public function findRecommended(string $itemType = null, $shareType = null): DataResponse {
+	public function findRecommended(string $itemType = null, int|array $shareType = null): DataResponse {
 		$shareTypes = [
 			IShare::TYPE_USER,
 		];
@@ -370,7 +377,7 @@ class ShareesAPIController extends OCSController {
 			$shareTypes = array_intersect($shareTypes, $_GET['shareType']);
 			sort($shareTypes);
 		} elseif (is_numeric($shareType)) {
-			$shareTypes = array_intersect($shareTypes, [(int) $shareType]);
+			$shareTypes = array_intersect($shareTypes, [$shareType]);
 			sort($shareTypes);
 		}
 

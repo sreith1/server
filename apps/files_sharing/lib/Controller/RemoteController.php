@@ -5,6 +5,7 @@
  * @author Bjoern Schiessle <bjoern@schiessle.org>
  * @author Joas Schilling <coding@schilljs.com>
  * @author Roeland Jago Douma <roeland@famdouma.nl>
+ * @author Kate Döen <kate.doeen@nextcloud.com>
  *
  * @license AGPL-3.0
  *
@@ -24,6 +25,8 @@
 namespace OCA\Files_Sharing\Controller;
 
 use OCA\Files_Sharing\External\Manager;
+use OCA\Files_Sharing\ResponseDefinitions;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\AppFramework\OCS\OCSNotFoundException;
@@ -31,6 +34,9 @@ use OCP\AppFramework\OCSController;
 use OCP\ILogger;
 use OCP\IRequest;
 
+/**
+ * @psalm-import-type RemoteShareItem from ResponseDefinitions
+ */
 class RemoteController extends OCSController {
 
 	/** @var Manager */
@@ -63,9 +69,9 @@ class RemoteController extends OCSController {
 	 *
 	 * Get list of pending remote shares
 	 *
-	 * @return DataResponse
+	 * @return DataResponse<RemoteShareItem[], Http::STATUS_OK>
 	 */
-	public function getOpenShares() {
+	public function getOpenShares(): DataResponse {
 		return new DataResponse($this->externalManager->getOpenShares());
 	}
 
@@ -75,10 +81,10 @@ class RemoteController extends OCSController {
 	 * Accept a remote share
 	 *
 	 * @param int $id
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSNotFoundException
 	 */
-	public function acceptShare($id) {
+	public function acceptShare(int $id): DataResponse {
 		if ($this->externalManager->acceptShare($id)) {
 			return new DataResponse();
 		}
@@ -95,10 +101,10 @@ class RemoteController extends OCSController {
 	 * Decline a remote share
 	 *
 	 * @param int $id
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSNotFoundException
 	 */
-	public function declineShare($id) {
+	public function declineShare(int $id): DataResponse {
 		if ($this->externalManager->declineShare($id)) {
 			return new DataResponse();
 		}
@@ -135,9 +141,9 @@ class RemoteController extends OCSController {
 	 *
 	 * List accepted remote shares
 	 *
-	 * @return DataResponse
+	 * @return DataResponse<RemoteShareItem[], Http::STATUS_OK>
 	 */
-	public function getShares() {
+	public function getShares(): DataResponse {
 		$shares = $this->externalManager->getAcceptedShares();
 		$shares = array_map('self::extendShareInfo', $shares);
 
@@ -150,10 +156,10 @@ class RemoteController extends OCSController {
 	 * Get info of a remote share
 	 *
 	 * @param int $id
-	 * @return DataResponse
+	 * @return DataResponse<RemoteShareItem, Http::STATUS_OK>
 	 * @throws OCSNotFoundException
 	 */
-	public function getShare($id) {
+	public function getShare(int $id): DataResponse {
 		$shareInfo = $this->externalManager->getShare($id);
 
 		if ($shareInfo === false) {
@@ -170,11 +176,11 @@ class RemoteController extends OCSController {
 	 * Unshare a remote share
 	 *
 	 * @param int $id
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSNotFoundException
 	 * @throws OCSForbiddenException
 	 */
-	public function unshare($id) {
+	public function unshare(int $id): DataResponse {
 		$shareInfo = $this->externalManager->getShare($id);
 
 		if ($shareInfo === false) {
