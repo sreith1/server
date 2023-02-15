@@ -29,6 +29,8 @@ use OCP\AppFramework\Http;
  * Class FileDisplayResponse
  *
  * @since 11.0.0
+ *
+ * @template S of Http::STATUS_*
  */
 class FileDisplayResponse extends Response implements ICallbackResponse {
 	/** @var \OCP\Files\File|\OCP\Files\SimpleFS\ISimpleFile */
@@ -38,7 +40,7 @@ class FileDisplayResponse extends Response implements ICallbackResponse {
 	 * FileDisplayResponse constructor.
 	 *
 	 * @param \OCP\Files\File|\OCP\Files\SimpleFS\ISimpleFile $file
-	 * @param int $statusCode
+	 * @param S $statusCode
 	 * @param array $headers
 	 * @since 11.0.0
 	 */
