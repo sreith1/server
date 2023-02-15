@@ -43,7 +43,8 @@ class DirectEditingCapabilities implements ICapability, IInitialStateExcludedCap
 			'files' => [
 				'directEditing' => [
 					'url' => $this->urlGenerator->linkToOCSRouteAbsolute('files.DirectEditing.info'),
-					'etag' => $this->directEditingService->getDirectEditingETag()
+					'etag' => $this->directEditingService->getDirectEditingETag(),
+					'supportsFileId' => true,
 				]
 			],
 		];
