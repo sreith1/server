@@ -52,6 +52,7 @@ use libphonenumber\PhoneNumberUtil;
 use OC\Authentication\Token\RemoteWipe;
 use OC\KnownUser\KnownUserService;
 use OC\User\Backend;
+use OCA\Provisioning_API\ResponseDefinitions;
 use OCA\Settings\Mailer\NewUserMailHelper;
 use OCP\Accounts\IAccountManager;
 use OCP\Accounts\IAccountProperty;
@@ -77,6 +78,9 @@ use OCP\Security\ISecureRandom;
 use OCP\User\Backend\ISetDisplayNameBackend;
 use Psr\Log\LoggerInterface;
 
+/**
+ * @psalm-import-type UserDetails from ResponseDefinitions
+ */
 class UsersController extends AUserData {
 
 	/** @var IURLGenerator */
@@ -142,7 +146,7 @@ class UsersController extends AUserData {
 	 * @param string $search
 	 * @param int $limit
 	 * @param int $offset
-	 * @return DataResponse
+	 * @return DataResponse<array{users: string[]}, Http::STATUS_OK>
 	 */
 	public function getUsers(string $search = '', int $limit = null, int $offset = 0): DataResponse {
 		$user = $this->userSession->getUser();
@@ -165,6 +169,7 @@ class UsersController extends AUserData {
 			}
 		}
 
+		/** @var string[] $users */
 		$users = array_keys($users);
 
 		return new DataResponse([
@@ -176,6 +181,7 @@ class UsersController extends AUserData {
 	 * @NoAdminRequired
 	 *
 	 * returns a list of users and their data
+	 * @return DataResponse<array{users: array<string, UserDetails|array{id: string}>}, Http::STATUS_OK>
 	 */
 	public function getUsersDetails(string $search = '', int $limit = null, int $offset = 0): DataResponse {
 		$currentUser = $this->userSession->getUser();
@@ -200,12 +206,13 @@ class UsersController extends AUserData {
 			$users = array_merge(...$users);
 		}
 
+		/** @var array<string, UserDetails|array{id: string}> $usersDetails */
 		$usersDetails = [];
 		foreach ($users as $userId) {
 			$userId = (string) $userId;
 			$userData = $this->getUserData($userId);
 			// Do not insert empty entry
-			if (!empty($userData)) {
+			if ($userData != null) {
 				$usersDetails[$userId] = $userData;
 			} else {
 				// Logged user does not have permissions to see this user
@@ -225,8 +232,8 @@ class UsersController extends AUserData {
 	 * @NoSubAdminRequired
 	 *
 	 * @param string $location
-	 * @param array $search
-	 * @return DataResponse
+	 * @param array<string, string[]> $search
+	 * @return DataResponse<array<string, string>, Http::STATUS_OK>|DataResponse<array, Http::STATUS_BAD_REQUEST>
 	 */
 	public function searchByPhoneNumbers(string $location, array $search): DataResponse {
 		$phoneUtil = PhoneNumberUtil::getInstance();
@@ -280,10 +287,6 @@ class UsersController extends AUserData {
 
 		$userMatches = $this->accountManager->searchUsers(IAccountManager::PROPERTY_PHONE, $phoneNumbers);
 
-		if (empty($userMatches)) {
-			return new DataResponse();
-		}
-
 		$cloudUrl = rtrim($this->urlGenerator->getAbsoluteURL('/'), '/');
 		if (strpos($cloudUrl, 'http://') === 0) {
 			$cloudUrl = substr($cloudUrl, strlen('http://'));
@@ -324,12 +327,13 @@ class UsersController extends AUserData {
 	 * @param string $password
 	 * @param string $displayName
 	 * @param string $email
-	 * @param array $groups
-	 * @param array $subadmin
+	 * @param string[] $groups
+	 * @param string[] $subadmin
 	 * @param string $quota
 	 * @param string $language
-	 * @return DataResponse
+	 * @return DataResponse<array{id: string}, Http::STATUS_OK>
 	 * @throws OCSException
+	 * @throws OCSForbiddenException
 	 */
 	public function addUser(
 		string $userid,
@@ -516,7 +520,7 @@ class UsersController extends AUserData {
 	 * gets user info
 	 *
 	 * @param string $userId
-	 * @return DataResponse
+	 * @return DataResponse<UserDetails, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function getUser(string $userId): DataResponse {
@@ -528,7 +532,7 @@ class UsersController extends AUserData {
 
 		$data = $this->getUserData($userId, $includeScopes);
 		// getUserData returns empty array if not enough permissions
-		if (empty($data)) {
+		if ($data == null) {
 			throw new OCSException('', OCSController::RESPOND_NOT_FOUND);
 		}
 		return new DataResponse($data);
@@ -540,12 +544,13 @@ class UsersController extends AUserData {
 	 *
 	 * gets user info from the currently logged in user
 	 *
-	 * @return DataResponse
+	 * @return DataResponse<UserDetails, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function getCurrentUser(): DataResponse {
 		$user = $this->userSession->getUser();
 		if ($user) {
+			/** @var UserDetails $data */
 			$data = $this->getUserData($user->getUID(), true);
 			return new DataResponse($data);
 		}
@@ -557,7 +562,7 @@ class UsersController extends AUserData {
 	 * @NoAdminRequired
 	 * @NoSubAdminRequired
 	 *
-	 * @return DataResponse
+	 * @return DataResponse<string[], Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function getEditableFields(): DataResponse {
@@ -574,7 +579,7 @@ class UsersController extends AUserData {
 	 * @NoSubAdminRequired
 	 *
 	 * @param string $userId
-	 * @return DataResponse
+	 * @return DataResponse<string[], Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function getEditableFieldsForUser(string $userId): DataResponse {
@@ -633,6 +638,7 @@ class UsersController extends AUserData {
 	 * @NoSubAdminRequired
 	 * @PasswordConfirmationRequired
 	 *
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function editUserMultiValue(
@@ -730,7 +736,7 @@ class UsersController extends AUserData {
 	 * @param string $userId
 	 * @param string $key
 	 * @param string $value
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function editUser(string $userId, string $key, string $value): DataResponse {
@@ -1032,7 +1038,7 @@ class UsersController extends AUserData {
 	 *
 	 * @param string $userId
 	 *
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 *
 	 * @throws OCSException
 	 */
@@ -1066,7 +1072,7 @@ class UsersController extends AUserData {
 	 * @NoAdminRequired
 	 *
 	 * @param string $userId
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function deleteUser(string $userId): DataResponse {
@@ -1101,7 +1107,7 @@ class UsersController extends AUserData {
 	 * @NoAdminRequired
 	 *
 	 * @param string $userId
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 * @throws OCSForbiddenException
 	 */
@@ -1114,7 +1120,7 @@ class UsersController extends AUserData {
 	 * @NoAdminRequired
 	 *
 	 * @param string $userId
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 * @throws OCSForbiddenException
 	 */
@@ -1125,7 +1131,7 @@ class UsersController extends AUserData {
 	/**
 	 * @param string $userId
 	 * @param bool $value
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	private function setEnabled(string $userId, bool $value): DataResponse {
@@ -1152,7 +1158,7 @@ class UsersController extends AUserData {
 	 * @NoSubAdminRequired
 	 *
 	 * @param string $userId
-	 * @return DataResponse
+	 * @return DataResponse<array{groups: string[]}, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function getUsersGroups(string $userId): DataResponse {
@@ -1197,7 +1203,7 @@ class UsersController extends AUserData {
 	 *
 	 * @param string $userId
 	 * @param string $groupid
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function addToGroup(string $userId, string $groupid = ''): DataResponse {
@@ -1232,7 +1238,7 @@ class UsersController extends AUserData {
 	 *
 	 * @param string $userId
 	 * @param string $groupid
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function removeFromGroup(string $userId, string $groupid): DataResponse {
@@ -1295,7 +1301,7 @@ class UsersController extends AUserData {
 	 *
 	 * @param string $userId
 	 * @param string $groupid
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function addSubAdmin(string $userId, string $groupid): DataResponse {
@@ -1333,7 +1339,7 @@ class UsersController extends AUserData {
 	 *
 	 * @param string $userId
 	 * @param string $groupid
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function removeSubAdmin(string $userId, string $groupid): DataResponse {
@@ -1363,7 +1369,7 @@ class UsersController extends AUserData {
 	 * Get the groups a user is a subadmin of
 	 *
 	 * @param string $userId
-	 * @return DataResponse
+	 * @return DataResponse<string[], Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function getUserSubAdminGroups(string $userId): DataResponse {
@@ -1378,7 +1384,7 @@ class UsersController extends AUserData {
 	 * resend welcome message
 	 *
 	 * @param string $userId
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function resendWelcomeMessage(string $userId): DataResponse {

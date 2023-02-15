@@ -7,6 +7,7 @@ declare(strict_types=1);
  *
  * @author Joas Schilling <coding@schilljs.com>
  * @author Roeland Jago Douma <roeland@famdouma.nl>
+ * @author Kate Döen <kate.doeen@nextcloud.com>
  *
  * @license GNU AGPL version 3 or any later version
  *
@@ -84,7 +85,7 @@ class AppConfigController extends OCSController {
 	}
 
 	/**
-	 * @return DataResponse
+	 * @return DataResponse<array{data: string[]}, Http::STATUS_OK>
 	 */
 	public function getApps(): DataResponse {
 		return new DataResponse([
@@ -94,7 +95,7 @@ class AppConfigController extends OCSController {
 
 	/**
 	 * @param string $app
-	 * @return DataResponse
+	 * @return DataResponse<array{data: string[]}, Http::STATUS_OK>|DataResponse<array{data: array{message: string}}, Http::STATUS_FORBIDDEN>
 	 */
 	public function getKeys(string $app): DataResponse {
 		try {
@@ -111,7 +112,7 @@ class AppConfigController extends OCSController {
 	 * @param string $app
 	 * @param string $key
 	 * @param string $defaultValue
-	 * @return DataResponse
+	 * @return DataResponse<array{data: string}, Http::STATUS_OK>|DataResponse<array{data: array{message: string}}, Http::STATUS_FORBIDDEN>
 	 */
 	public function getValue(string $app, string $key, string $defaultValue = ''): DataResponse {
 		try {
@@ -131,7 +132,7 @@ class AppConfigController extends OCSController {
 	 * @param string $app
 	 * @param string $key
 	 * @param string $value
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>|DataResponse<array{data: array{message: string}}, Http::STATUS_FORBIDDEN>
 	 */
 	public function setValue(string $app, string $key, string $value): DataResponse {
 		$user = $this->userSession->getUser();
@@ -158,7 +159,7 @@ class AppConfigController extends OCSController {
 	 * @PasswordConfirmationRequired
 	 * @param string $app
 	 * @param string $key
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>|DataResponse<array{data: array{message: string}}, Http::STATUS_FORBIDDEN>
 	 */
 	public function deleteKey(string $app, string $key): DataResponse {
 		try {

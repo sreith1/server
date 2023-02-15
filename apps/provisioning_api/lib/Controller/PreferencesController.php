@@ -6,6 +6,7 @@ declare(strict_types=1);
  * @copyright Copyright (c) 2022 Joas Schilling <coding@schilljs.com>
  *
  * @author Joas Schilling <coding@schilljs.com>
+ * @author Kate Döen <kate.doeen@nextcloud.com>
  *
  * @license GNU AGPL version 3 or any later version
  *
@@ -58,6 +59,10 @@ class PreferencesController extends OCSController {
 	/**
 	 * @NoAdminRequired
 	 * @NoSubAdminRequired
+	 *
+	 * @param array<string, string> $configs
+	 *
+	 * @return DataResponse<array, Http::STATUS_OK|Http::STATUS_BAD_REQUEST>
 	 */
 	public function setMultiplePreferences(string $appId, array $configs): DataResponse {
 		$userId = $this->userSession->getUser()->getUID();
@@ -93,6 +98,8 @@ class PreferencesController extends OCSController {
 	/**
 	 * @NoAdminRequired
 	 * @NoSubAdminRequired
+	 *
+	 * @return DataResponse<array, Http::STATUS_OK|Http::STATUS_BAD_REQUEST>
 	 */
 	public function setPreference(string $appId, string $configKey, string $configValue): DataResponse {
 		$userId = $this->userSession->getUser()->getUID();
@@ -124,6 +131,10 @@ class PreferencesController extends OCSController {
 	/**
 	 * @NoAdminRequired
 	 * @NoSubAdminRequired
+	 *
+	 * @param string[] $configKeys
+	 *
+	 * @return DataResponse<array, Http::STATUS_OK|Http::STATUS_BAD_REQUEST>
 	 */
 	public function deleteMultiplePreference(string $appId, array $configKeys): DataResponse {
 		$userId = $this->userSession->getUser()->getUID();
@@ -157,6 +168,8 @@ class PreferencesController extends OCSController {
 	/**
 	 * @NoAdminRequired
 	 * @NoSubAdminRequired
+	 *
+	 * @return DataResponse<array, Http::STATUS_OK|Http::STATUS_BAD_REQUEST>
 	 */
 	public function deletePreference(string $appId, string $configKey): DataResponse {
 		$userId = $this->userSession->getUser()->getUID();

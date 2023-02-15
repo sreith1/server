@@ -14,6 +14,7 @@ declare(strict_types=1);
  * @author Robin Appelman <robin@icewind.nl>
  * @author Roeland Jago Douma <roeland@famdouma.nl>
  * @author Tom Needham <tom@owncloud.com>
+ * @author Kate Döen <kate.doeen@nextcloud.com>
  *
  * @license AGPL-3.0
  *
@@ -32,7 +33,9 @@ declare(strict_types=1);
  */
 namespace OCA\Provisioning_API\Controller;
 
+use OCA\Provisioning_API\ResponseDefinitions;
 use OCP\Accounts\IAccountManager;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSException;
 use OCP\AppFramework\OCS\OCSForbiddenException;
@@ -48,6 +51,10 @@ use OCP\IUserSession;
 use OCP\L10N\IFactory;
 use Psr\Log\LoggerInterface;
 
+/**
+ * @psalm-import-type GroupDetails from ResponseDefinitions
+ * @psalm-import-type UserDetails from ResponseDefinitions
+ */
 class GroupsController extends AUserData {
 
 	/** @var LoggerInterface */
@@ -83,7 +90,7 @@ class GroupsController extends AUserData {
 	 * @param string $search
 	 * @param int $limit
 	 * @param int $offset
-	 * @return DataResponse
+	 * @return DataResponse<array{groups: string[]}, Http::STATUS_OK>
 	 */
 	public function getGroups(string $search = '', int $limit = null, int $offset = 0): DataResponse {
 		$groups = $this->groupManager->search($search, $limit, $offset);
@@ -104,7 +111,7 @@ class GroupsController extends AUserData {
 	 * @param string $search
 	 * @param int $limit
 	 * @param int $offset
-	 * @return DataResponse
+	 * @return DataResponse<array{groups: GroupDetails[]}, Http::STATUS_OK>
 	 */
 	public function getGroupsDetails(string $search = '', int $limit = null, int $offset = 0): DataResponse {
 		$groups = $this->groupManager->search($search, $limit, $offset);
@@ -127,7 +134,7 @@ class GroupsController extends AUserData {
 	 * @NoAdminRequired
 	 *
 	 * @param string $groupId
-	 * @return DataResponse
+	 * @return DataResponse<array{users: string[]}, Http::STATUS_OK>
 	 * @throws OCSException
 	 *
 	 * @deprecated 14 Use getGroupUsers
@@ -142,8 +149,10 @@ class GroupsController extends AUserData {
 	 * @NoAdminRequired
 	 *
 	 * @param string $groupId
-	 * @return DataResponse
+	 * @return DataResponse<array{users: string[]}, Http::STATUS_OK>
 	 * @throws OCSException
+	 * @throws OCSNotFoundException
+	 * @throws OCSForbiddenException
 	 */
 	public function getGroupUsers(string $groupId): DataResponse {
 		$groupId = urldecode($groupId);
@@ -167,6 +176,7 @@ class GroupsController extends AUserData {
 				/** @var IUser $user */
 				return $user->getUID();
 			}, $users);
+			/** @var string[] $users */
 			$users = array_values($users);
 			return new DataResponse(['users' => $users]);
 		}
@@ -183,7 +193,8 @@ class GroupsController extends AUserData {
 	 * @param string $search
 	 * @param int $limit
 	 * @param int $offset
-	 * @return DataResponse
+	 *
+	 * @return DataResponse<array{users: array<string, UserDetails|array{id: string}>}, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function getGroupUsersDetails(string $groupId, string $search = '', int $limit = null, int $offset = 0): DataResponse {
@@ -210,7 +221,7 @@ class GroupsController extends AUserData {
 					$userId = (string)$user->getUID();
 					$userData = $this->getUserData($userId);
 					// Do not insert empty entry
-					if (!empty($userData)) {
+					if ($userData != null) {
 						$usersDetails[$userId] = $userData;
 					} else {
 						// Logged user does not have permissions to see this user
@@ -234,7 +245,7 @@ class GroupsController extends AUserData {
 	 *
 	 * @param string $groupid
 	 * @param string $displayname
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function addGroup(string $groupid, string $displayname = ''): DataResponse {
@@ -263,7 +274,7 @@ class GroupsController extends AUserData {
 	 * @param string $groupId
 	 * @param string $key
 	 * @param string $value
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function updateGroup(string $groupId, string $key, string $value): DataResponse {
@@ -285,7 +296,7 @@ class GroupsController extends AUserData {
 	 * @PasswordConfirmationRequired
 	 *
 	 * @param string $groupId
-	 * @return DataResponse
+	 * @return DataResponse<array, Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function deleteGroup(string $groupId): DataResponse {
@@ -304,7 +315,7 @@ class GroupsController extends AUserData {
 
 	/**
 	 * @param string $groupId
-	 * @return DataResponse
+	 * @return DataResponse<string[], Http::STATUS_OK>
 	 * @throws OCSException
 	 */
 	public function getSubAdminsOfGroup(string $groupId): DataResponse {
@@ -317,6 +328,7 @@ class GroupsController extends AUserData {
 		/** @var IUser[] $subadmins */
 		$subadmins = $this->groupManager->getSubAdmin()->getGroupsSubAdmins($targetGroup);
 		// New class returns IUser[] so convert back
+		/** @var string[] $uids */
 		$uids = [];
 		foreach ($subadmins as $user) {
 			$uids[] = $user->getUID();
