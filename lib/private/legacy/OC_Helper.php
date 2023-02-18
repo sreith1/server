@@ -473,7 +473,7 @@ class OC_Helper {
 		if (!$view) {
 			throw new \OCP\Files\NotFoundException();
 		}
-		$fullPath = $view->getAbsolutePath($path);
+		$fullPath = Filesystem::normalizePath($view->getAbsolutePath($path));
 
 		$cacheKey = $fullPath. '::' . ($includeMountPoints ? 'include' : 'exclude');
 		if ($useCache) {
