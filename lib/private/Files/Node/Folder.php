@@ -98,7 +98,8 @@ class Folder extends Node implements \OCP\Files\Folder {
 	 * @throws \OCP\Files\NotFoundException
 	 */
 	public function getDirectoryListing() {
-		$folderContent = $this->view->getDirectoryContent($this->path, '', $this->getFileInfo(false));
+		$relativePath = $this->view->getRelativePath($this->path);
+		$folderContent = $this->view->getDirectoryContent($relativePath, '', $this->getFileInfo(false));
 
 		return array_map(function (FileInfo $info) {
 			if ($info->getMimetype() === FileInfo::MIMETYPE_FOLDER) {

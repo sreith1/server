@@ -52,7 +52,7 @@ class Node implements \OCP\Files\Node {
 	protected $root;
 
 	/**
-	 * @var string $path
+	 * @var string $path Absolute path to the node (e.g. /admin/files/folder/file)
 	 */
 	protected $path;
 
