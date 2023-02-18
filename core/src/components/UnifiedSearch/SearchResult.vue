@@ -180,11 +180,15 @@ $margin: 10px;
 		border-bottom: none;
 	}
 
-	&--focused,
+	&--focused {
+		background-color: var(--color-background-hover);
+	}
+
 	&:active,
 	&:hover,
 	&:focus {
 		background-color: var(--color-background-hover);
+		box-shadow: inset 0 0 0 2px var(--color-border-maxcontrast);
 	}
 
 	* {
