@@ -177,7 +177,7 @@ $.widget('oc.ocdialog', {
 			break
 		case 'closeButton':
 			if (value) {
-				const $closeButton = $('<a class="oc-dialog-close" tabindex="0"></a>')
+				const $closeButton = $(`<button class="oc-dialog-close" aria-label="${t('core', 'Close')}"></button>`)
 				this.$dialog.prepend($closeButton)
 				$closeButton.on('click keydown', function(event) {
 					if (isA11yActivation(event)) {
